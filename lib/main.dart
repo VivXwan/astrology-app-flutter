@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'screens/chart_screen.dart';
+import 'models/chart.dart';
 
 void main() {
-  runApp(const VedicAstrologyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ChartProvider(),
+      child: const VedicAstrologyApp(),
+    ),
+  );
 }
 
 class VedicAstrologyApp extends StatelessWidget {
@@ -13,7 +21,10 @@ class VedicAstrologyApp extends StatelessWidget {
       title: 'Vedic Astrology',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        fontFamily: 'Inter', // Add later with font setup
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(fontSize: 16),
+          bodyMedium: TextStyle(fontSize: 14),
+        ),
       ),
       home: const HomeScreen(),
     );
@@ -60,12 +71,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       body: TabBarView(
         controller: _tabController,
         children: const [
-          Center(child: Text('Rasi & Navamsa Charts')),
+          ChartScreen(),
           Center(child: Text('Vimshottari Dasha')),
           Center(child: Text('Planetary Strengths')),
           Center(child: Text('Current Transits')),
         ],
       ),
     );
+  }
+}
+
+class ChartProvider with ChangeNotifier {
+  Chart? _chart;
+
+  Chart? get chart => _chart;
+
+  void setChart(Chart chart) {
+    _chart = chart;
+    notifyListeners();
   }
 }
