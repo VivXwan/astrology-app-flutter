@@ -21,11 +21,11 @@ class NorthIndianChartPainter extends CustomPainter {
 
     // Calculate center and radius
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width * 0.45;
+    final radius = size.width * 0.5;
 
     // Draw outer square
     canvas.drawRect(
-      Rect.fromCenter(center: center, width: size.width * 0.9, height: size.width * 0.9),
+      Rect.fromCenter(center: center, width: size.width, height: size.width),
       paint,
     );
 
@@ -51,73 +51,6 @@ class NorthIndianChartPainter extends CustomPainter {
       ..lineTo(center.dx - radius, center.dy - radius)
       ..close();
     canvas.drawPath(secondaryDiagonal, paint);
-
-    // Assign signs based on ascendant
-    final ascendantIndex = zodiacSigns.indexOf(ascendantSign);
-    final houseSigns = List.generate(12, (i) => zodiacSigns[(ascendantIndex + i) % 12]);
-
-    // Place planets in houses
-    final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    final houseBoxes = _calculateHouseBoxes(size, center, radius);
-    // planets.forEach((planet, details) {
-    //   final house = details['house'] - 1; // 1-based to 0-based
-    //   final sign = details['sign'];
-    //   final box = houseBoxes[house];
-    //   final textSpan = TextSpan(
-    //     text: _getPlanetAbbreviation(planet),
-    //     style: TextStyle(
-    //       color: Constants.planetColors[planet] ?? Colors.black,
-    //       fontSize: 12,
-    //     ),
-    //   );
-    //   textPainter.text = textSpan;
-    //   textPainter.layout();
-    //   // Center in box (simplified, adjust for overlaps later)
-    //   textPainter.paint(
-    //     canvas,
-    //     Offset(
-    //       box.left + (box.width - textPainter.width) / 2,
-    //       box.top + (box.height - textPainter.height) / 2,
-    //     ),
-    //   );
-    // });
-
-    // Draw house numbers and signs (simplified)
-    // for (var i = 0; i < 12; i++) {
-    //   final box = houseBoxes[i];
-    //   final textSpan = TextSpan(
-    //     text: '${i + 1} (${houseSigns[i].substring(0, 3)})',
-    //     style: TextStyle(color: Colors.black, fontSize: 10),
-    //   );
-    //   textPainter.text = textSpan;
-    //   textPainter.layout();
-    //   textPainter.paint(
-    //     canvas,
-    //     Offset(
-    //       box.left + 5,
-    //       box.top + 5,
-    //     ),
-    //   );
-    // }
-  }
-
-  List<Rect> _calculateHouseBoxes(Size size, Offset center, double radius) {
-    // Simplified: Approximate boxes for houses
-    // In reality, calculate exact trapezoids based on diamond geometry
-    final boxes = <Rect>[];
-    final boxSize = size.width * 0.2;
-    // Example layout (adjust coordinates based on actual house shapes)
-    boxes.add(Rect.fromLTWH(center.dx - boxSize, center.dy - radius - boxSize, boxSize, boxSize)); // House 1
-    // Add other houses similarly (requires geometric calculation)
-    for (var i = 1; i < 12; i++) {
-      boxes.add(Rect.fromLTWH(
-        center.dx + (i % 4) * boxSize,
-        center.dy + (i ~/ 4) * boxSize,
-        boxSize,
-        boxSize,
-      ));
-    }
-    return boxes;
   }
 
   String _getPlanetAbbreviation(String planet) {
@@ -159,18 +92,41 @@ class SouthIndianChartPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
-    // Draw 4x4 grid
     final cellWidth = size.width / 4;
     final cellHeight = size.height / 4;
-    for (var i = 0; i <= 4; i++) {
+    final center = Offset(size.width / 2, size.height / 2);
+
+    // Draw outer square
+    canvas.drawRect(
+      Rect.fromCenter(center: center, width: size.width, height: size.width),
+      paint,
+    );
+
+        // Draw inner square
+    canvas.drawRect(
+      Rect.fromCenter(center: center, width: size.width / 2, height: size.width / 2),
+      paint,
+    );
+
+    for (var i = 1; i < 4; i++) {
       canvas.drawLine(
         Offset(i * cellWidth, 0),
-        Offset(i * cellWidth, size.height),
+        Offset(i * cellWidth,cellHeight),
         paint,
       );
       canvas.drawLine(
         Offset(0, i * cellHeight),
-        Offset(size.width, i * cellHeight),
+        Offset(cellWidth, i * cellHeight),
+        paint,
+      );
+      canvas.drawLine(
+        Offset((4-i) * cellWidth, 4 * cellHeight),
+        Offset((4-i) * cellWidth, 3 * cellHeight),
+        paint,
+      );
+      canvas.drawLine(
+        Offset(4 * cellWidth, (4-i) * cellHeight),
+        Offset(3 * cellWidth, (4-i) * cellHeight),
         paint,
       );
     }
