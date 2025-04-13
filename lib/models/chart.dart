@@ -16,7 +16,7 @@ class Chart {
   factory Chart.fromJson(Map<String, dynamic> json) {
     return Chart(
       kundali: json['kundali'] ?? {},
-      navamsa: json['navamsa'] ?? {},
+      navamsa: json['vargas']?['D-9'] ?? {},
       vimshottariDasha: json['vimshottari_dasha'] ?? [],
       transits: json['transits'] ?? {},
       strengths: {
@@ -26,4 +26,7 @@ class Chart {
       },
     );
   }
+
+  String get ascendantSign => kundali['ascendant']?['sign'] ?? 'Aries';
+  Map<String, dynamic> get planets => kundali['planets'] ?? {};
 }
