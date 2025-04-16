@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import 'screens/chart_screen.dart';
+import 'screens/input_screen.dart';
 import 'models/chart.dart';
 
 void main() {
