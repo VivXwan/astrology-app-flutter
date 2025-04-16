@@ -5,7 +5,7 @@ class Constants {
   static const Map<String, Color> planetColors = {
     'Sun': Color(0xFFFF9800),
     'Moon': Color(0xFFB0BEC5),
-    'Mars': Color(0xFFD32F2F),
+    'Mars': Color(0xFFff0000),
     'Mercury': Color(0xFF4CAF50),
     'Jupiter': Color(0xFFFFC107),
     'Venus': Color(0xFFE91E63),

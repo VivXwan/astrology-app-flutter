@@ -225,21 +225,51 @@ class NorthIndianChartPainter extends CustomPainter {
   //     );
   //   }
 
-    // Draw house number
-    textPainter.text = TextSpan(
-      // text: '${house + 1}',
-      text: '${signNumbers[house]}',
-      style: TextStyle(
-        color: Colors.black,
-        fontSize: size.width * 0.03,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      houseNumberPos.translate(-textPainter.width / 2, -textPainter.height / 2),
-    );
+      // Draw house number
+      textPainter.text = TextSpan(
+        // text: '${house + 1}',
+        text: '${signNumbers[house]}',
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: size.width * 0.03,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        houseNumberPos.translate(-textPainter.width / 2, -textPainter.height / 2),
+      );
+
+      // Planets (stack vertically below sign number)
+      final housePlanets = planetsByHouse[house];
+      if (housePlanets.isNotEmpty) {
+        final startPos = Offset(
+          bounds.center.dx,
+          bounds.center.dy,
+        );
+        for (var i = 0; i < housePlanets.length; i++) {
+          final planet = housePlanets[i];
+          final planetPos = Offset(
+            startPos.dx,
+            startPos.dy + i * textPainter.height * 1.2,
+          );
+          if (housePath.contains(planetPos)) {
+            textPainter.text = TextSpan(
+              text: _getPlanetAbbreviation(planet),
+              style: TextStyle(
+                color: Constants.planetColors[planet] ?? Colors.black,
+                fontSize: size.width * 0.05,
+              ),
+            );
+            textPainter.layout();
+            textPainter.paint(
+              canvas,
+              planetPos.translate(-textPainter.width / 2, -textPainter.height / 2),
+            );
+          }
+        }
+      }
     }
   }
 
