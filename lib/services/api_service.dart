@@ -1,6 +1,20 @@
 import 'package:dio/dio.dart';
 import '../utils/constants.dart';
 
+class GeocodeResponse {
+  final double latitude;
+  final double longitude;
+
+  GeocodeResponse({required this.latitude, required this.longitude});
+
+  factory GeocodeResponse.fromJson(Map<String, dynamic> json) {
+    return GeocodeResponse(
+      latitude: json['latitude'] as double,
+      longitude: json['longitude'] as double,
+    );
+  }
+}
+
 class ApiService {
   final Dio _dio = Dio(BaseOptions(
     baseUrl: Constants.apiBaseUrl,
@@ -34,6 +48,15 @@ class ApiService {
       return response.data;
     } on DioException catch (e) {
       throw Exception('Failed to fetch chart: ${e.message}');
+    }
+  }
+
+  Future<GeocodeResponse> geocode(String query) async {
+    try {
+      final response = await _dio.post('/geocode', data: {'query': query});
+      return GeocodeResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      throw Exception('Failed to geocode location: ${e.message}');
     }
   }
 }

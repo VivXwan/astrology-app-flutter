@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class Constants {
   // static const String apiBaseUrl = 'http://localhost:8000';
-  static const String apiBaseUrl = 'http://192.168.1.3:8000';
+  static const String apiBaseUrl = 'http://192.168.1.4:8000';
   static const Map<String, Color> planetColors = {
     'Sun': Color(0xFFFF9800),
     'Moon': Color(0xFFB0BEC5),

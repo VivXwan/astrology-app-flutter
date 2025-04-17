@@ -17,19 +17,19 @@ class _ChartScreenState extends State<ChartScreen> with AutomaticKeepAliveClient
   @override
   void initState() {
     super.initState();
-    final provider = Provider.of<ChartProvider>(context, listen: false);
-    if (provider.chart == null && !provider.isLoading) {
-      provider.fetchChart(
-        year: 1990,
-        month: 5,
-        day: 15,
-        hour: 10.0,
-        minute: 30.0,
-        latitude: 28.66694444,
-        longitude: 77.21694444,
-        tzOffset: 5.5,
-      );
-    }
+    // final provider = Provider.of<ChartProvider>(context, listen: false);
+    // if (provider.chart == null && !provider.isLoading) {
+    //   provider.fetchChart(
+    //     year: 1990,
+    //     month: 5,
+    //     day: 15,
+    //     hour: 10.0,
+    //     minute: 30.0,
+    //     latitude: 28.66694444,
+    //     longitude: 77.21694444,
+    //     tzOffset: 5.5,
+    //   );
+    // }
   }
 
   @override

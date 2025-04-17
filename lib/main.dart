@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/api_service.dart';
+import 'services/api_service.dart';
 import 'screens/chart_screen.dart';
 import 'screens/input_screen.dart';
 import 'models/chart.dart';
@@ -46,7 +46,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
+    // Navigate to InputScreen immediately
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const InputScreen()),
+      );
+    });
   }
 
   @override
@@ -57,29 +64,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Vedic Astrology'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Charts'),
-            Tab(text: 'Dasha'),
-            Tab(text: 'Strengths'),
-            Tab(text: 'Transits'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          ChartScreen(),
-          Center(child: Text('Vimshottari Dasha')),
-          Center(child: Text('Planetary Strengths')),
-          Center(child: Text('Current Transits')),
-        ],
-      ),
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
     );
+    // return Scaffold(
+    //   appBar: AppBar(
+    //     title: const Text('Vedic Astrology'),
+    //     bottom: TabBar(
+    //       controller: _tabController,
+    //       tabs: const [
+    //         Tab(text: 'Charts'),
+    //         Tab(text: 'Dasha'),
+    //         Tab(text: 'Strengths'),
+    //         Tab(text: 'Transits'),
+    //       ],
+    //     ),
+    //   ),
+    //   body: TabBarView(
+    //     controller: _tabController,
+    //     children: const [
+    //       ChartScreen(),
+    //       Center(child: Text('Vimshottari Dasha')),
+    //       Center(child: Text('Planetary Strengths')),
+    //       Center(child: Text('Current Transits')),
+    //     ],
+    //   ),
+    // );
   }
 }
 
