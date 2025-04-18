@@ -7,8 +7,11 @@ import 'models/chart.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ChartProvider(),
+    MultiProvider(
+      providers: [
+        Provider<ApiService>(create: (_) => ApiService()),
+        ChangeNotifierProvider<ChartProvider>(create: (_) => ChartProvider()),
+      ],
       child: const VedicAstrologyApp(),
     ),
   );
@@ -67,29 +70,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return const Scaffold(
       body: Center(child: CircularProgressIndicator()),
     );
-    // return Scaffold(
-    //   appBar: AppBar(
-    //     title: const Text('Vedic Astrology'),
-    //     bottom: TabBar(
-    //       controller: _tabController,
-    //       tabs: const [
-    //         Tab(text: 'Charts'),
-    //         Tab(text: 'Dasha'),
-    //         Tab(text: 'Strengths'),
-    //         Tab(text: 'Transits'),
-    //       ],
-    //     ),
-    //   ),
-    //   body: TabBarView(
-    //     controller: _tabController,
-    //     children: const [
-    //       ChartScreen(),
-    //       Center(child: Text('Vimshottari Dasha')),
-    //       Center(child: Text('Planetary Strengths')),
-    //       Center(child: Text('Current Transits')),
-    //     ],
-    //   ),
-    // );
   }
 }
 
@@ -111,16 +91,13 @@ class ChartProvider with ChangeNotifier {
     required double latitude,
     required double longitude,
     double tzOffset = 5.5,
-    String? ayanamsaType,
   }) async {
-    if (_chart != null) return; // Avoid refetching if data exists
-
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    final apiService = ApiService();
     try {
+      final apiService = ApiService();
       final data = await apiService.getChart(
         year: year,
         month: month,
@@ -130,7 +107,6 @@ class ChartProvider with ChangeNotifier {
         latitude: latitude,
         longitude: longitude,
         tzOffset: tzOffset,
-        ayanamsaType: ayanamsaType,
       );
       _chart = Chart.fromJson(data);
     } catch (e) {

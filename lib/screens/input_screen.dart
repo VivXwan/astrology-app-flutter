@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import '../services/api_service.dart';
-import '../main.dart'; // For ChartProvider and ApiService
+import '../main.dart'; // For ChartProvider
 import 'chart_screen.dart'; // To navigate to ChartScreen
 
 class InputScreen extends StatefulWidget {
@@ -19,14 +20,12 @@ class _InputScreenState extends State<InputScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   double? _tzOffset;
-  String? _selectedCity;
   String? _locationQuery;
   double? _latitude;
   double? _longitude;
   bool _isLoading = false;
   String? _errorMessage;
   bool _useManualInput = false;
-  bool _useOtherLocation = false;
 
   // Predefined city list
   static const List<Map<String, dynamic>> predefinedCities = [
@@ -85,19 +84,32 @@ class _InputScreenState extends State<InputScreen> {
       _longitude = null;
     });
     try {
-      print('Geocoding query: $query');
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final response = await apiService.geocode(query);
-      setState(() {
-        _latitude = response.latitude;
-        _longitude = response.longitude;
-        _locationQuery = query;
-        print('Location found: Lat: $_latitude, Long: $_longitude');
-      });
+      // Check if query matches a predefined city (case-insensitive)
+      final matchedCity = predefinedCities.firstWhere(
+        (city) => city['name'].toLowerCase() == query.toLowerCase(),
+        orElse: () => {},
+      );
+      if (matchedCity.isNotEmpty) {
+        // Use predefined lat/long if found
+        setState(() {
+          _latitude = matchedCity['lat'] as double;
+          _longitude = matchedCity['long'] as double;
+          _locationQuery = query;
+          print('Predefined location found: Lat: $_latitude, Long: $_longitude');
+        });
+      }
+      else {
+        final apiService = Provider.of<ApiService>(context, listen: false);
+        final response = await apiService.geocode(query);
+        setState(() {
+          _latitude = response.latitude;
+          _longitude = response.longitude;
+          _locationQuery = query;
+        });
+      }
     } catch (e) {
       setState(() {
         _errorMessage = 'Error finding location: $e. Try manual input.';
-        print('Geocoding error: $e');
       });
     } finally {
       setState(() {
@@ -111,10 +123,20 @@ class _InputScreenState extends State<InputScreen> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
-      // If location query is filled but lat/long are null, trigger geocoding
-      if (_locationQuery != null && _locationQuery!.isNotEmpty && (_latitude == null || _longitude == null)) {
+      // Manually validate place of birth if not using manual input
+    if (!_useManualInput) {
+      final query = _locationController.text;
+      if (query.isEmpty) {
+        setState(() {
+          _errorMessage = 'Please enter a place of birth';
+        });
+        return;
+      }
+      _locationQuery = query; // Set _locationQuery manually
+      if (_latitude == null || _longitude == null) {
         await _searchLocation(_locationQuery!);
       }
+    }
 
       // Validate all fields
       if (_selectedDate == null || _selectedTime == null || _latitude == null || _longitude == null || _tzOffset == null) {
@@ -203,39 +225,6 @@ class _InputScreenState extends State<InputScreen> {
                 trailing: const Icon(Icons.access_time),
                 onTap: () => _pickTime(context),
               ),
-              // City selection
-              DropdownButtonFormField<String>(
-                value: _selectedCity,
-                decoration: const InputDecoration(
-                  labelText: 'Select Birth City',
-                ),
-                items: predefinedCities.map((city) {
-                  return DropdownMenuItem<String>(
-                    value: city['name'],
-                    child: Text(city['name']),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCity = value;
-                    final selected = predefinedCities.firstWhere((city) => city['name'] == value);
-                    _latitude = selected['lat'] as double?;
-                    _longitude = selected['long'] as double?;
-                    _useOtherLocation = value == 'Other';
-                    _locationController.clear();
-                    _latitudeController.clear();
-                    _longitudeController.clear();
-                    _errorMessage = null;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value == 'Select a city') {
-                    return 'Please select a city';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
               // Toggle between geocoding and manual input
               Row(
                 children: [
@@ -257,38 +246,56 @@ class _InputScreenState extends State<InputScreen> {
                   ),
                 ],
               ),
-              // Location input (geocoding or manual)
-              if (_useOtherLocation && !_useManualInput)
-                TextFormField(
-                  controller: _locationController,
-                  decoration: InputDecoration(
-                    labelText: 'Enter Location (e.g., Paris, France)',
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      onPressed: _isLoading
-                          ? null
-                          : () {
-                              final query = _locationController.text;
-                              if (query.isNotEmpty) {
-                                _searchLocation(query);
-                              }
-                            },
-                    ),
-                  ),
-                  onSaved: (value) {
-                    _locationQuery = value;
+              // Location input (autocomplete or manual)
+              if (!_useManualInput)
+                TypeAheadField<String>(
+                  suggestionsCallback: (pattern) async {
+                    if (pattern.isEmpty) return [];
+                    return predefinedCities
+                        .where((city) => city['name'].toLowerCase().contains(pattern.toLowerCase()))
+                        .map((city) => city['name'] as String)
+                        .toList();
                   },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a location';
-                    }
-                    return null;
+                  itemBuilder: (context, suggestion) {
+                    return ListTile(
+                      title: Text(suggestion),
+                    );
                   },
-                  onFieldSubmitted: (value) {
-                    _searchLocation(value);
+                  onSelected: (suggestion) {
+                    _locationController.text = suggestion;
+                    _searchLocation(suggestion);
+                  },
+                  builder: (context, controller, focusNode) {
+                    // Use the provided controller and focusNode to ensure suggestions box works
+                    _locationController.text = controller.text; // Sync controller
+                    return TextField(
+                      controller: _locationController,
+                      focusNode: focusNode,
+                      decoration: InputDecoration(
+                        labelText: 'Place of Birth (e.g., Delhi, India)',
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.search),
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  final query = _locationController.text;
+                                  if (query.isNotEmpty) {
+                                    _locationQuery = query; // Manually set _locationQuery
+                                    _searchLocation(query);
+                                  }
+                                },
+                        ),
+                      ),
+                      onSubmitted: (value) {
+                        if (value.isNotEmpty) {
+                          _locationQuery = value; // Manually set _locationQuery
+                          _searchLocation(value);
+                        }
+                      },
+                    );
                   },
                 )
-              else if (_useManualInput)
+              else
                 Row(
                   children: [
                     Expanded(
