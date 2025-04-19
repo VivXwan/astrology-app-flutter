@@ -1,32 +1,12 @@
 class Chart {
-  final Map<String, dynamic> kundali;
-  final Map<String, dynamic> navamsa;
-  final List<dynamic> vimshottariDasha;
-  final Map<String, dynamic> transits;
-  final Map<String, dynamic> strengths;
+  final Map<String, dynamic> data;
 
-  Chart({
-    required this.kundali,
-    required this.navamsa,
-    required this.vimshottariDasha,
-    required this.transits,
-    required this.strengths,
-  });
+  Chart(this.data);
 
   factory Chart.fromJson(Map<String, dynamic> json) {
-    return Chart(
-      kundali: json['kundali'] ?? {},
-      navamsa: json['vargas']?['D-9'] ?? {},
-      vimshottariDasha: json['vimshottari_dasha'] ?? [],
-      transits: json['transits'] ?? {},
-      strengths: {
-        'sthana_bala': json['sthana_bala'] ?? {},
-        'dig_bala': json['dig_bala'] ?? {},
-        'kala_bala': json['kala_bala'] ?? {},
-      },
-    );
+    return Chart(json);
   }
 
-  String get ascendantSign => kundali['ascendant']?['sign'] ?? 'Aries';
-  Map<String, dynamic> get planets => kundali['planets'] ?? {};
+  String get ascendantSign => data['kundali']['ascendant']?['sign'] ?? 'Aries';
+  Map<String, dynamic> get planets => data['kundali']['planets'] ?? {};
 }
