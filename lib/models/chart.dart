@@ -9,4 +9,5 @@ class Chart {
 
   String get ascendantSign => data['kundali']['ascendant']?['sign'] ?? 'Aries';
   Map<String, dynamic> get planets => data['kundali']['planets'] ?? {};
+  Map<String, dynamic> get kundali => data['kundali'] ?? {};
 }

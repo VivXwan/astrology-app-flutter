@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/chart.dart';
 import '../services/api_service.dart';
+import 'kundali_provider.dart';
+import '../main.dart';
 
 class ChartProvider with ChangeNotifier {
   Chart? _chart;
@@ -38,6 +41,10 @@ class ChartProvider with ChangeNotifier {
         tzOffset: tzOffset,
       );
       _chart = Chart.fromJson(data);
+
+      // Update KundaliProvider with the kundali details
+      final kundaliProvider = Provider.of<KundaliProvider>(navigatorKey.currentContext!, listen: false);
+      kundaliProvider.setKundaliDetails(data['kundali']);
     } catch (e) {
       _error = e.toString();
     } finally {

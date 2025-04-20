@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/chart_provider.dart';
-import 'chart_widget.dart';
+import 'chart/widgets/chart_widget.dart';
+import 'chart/widgets/kundali_table_widget.dart';
 
 class ChartScreen extends StatefulWidget {
   const ChartScreen({super.key});
@@ -43,9 +44,21 @@ class _ChartScreenState extends State<ChartScreen> with AutomaticKeepAliveClient
         if (provider.isLoading || provider.chart == null) {
           return const Center(child: CircularProgressIndicator());
         }
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ChartWidget(chart: provider.chart!),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Chart Details'),
+          ),
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.5,
+                  child: ChartWidget(chart: provider.chart!),
+                ),
+                const KundaliTableWidget(),
+              ],
+            ),
+          ),
         );
       },
     );

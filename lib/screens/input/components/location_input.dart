@@ -9,6 +9,7 @@ class LocationInput extends StatefulWidget {
   final Function(bool) onToggleManualInput;
   final Function(double, double) onLocationSelected;
   final Function(String) onError;
+  final Function(String) onLocationQuery;
 
   const LocationInput({
     super.key,
@@ -16,6 +17,7 @@ class LocationInput extends StatefulWidget {
     required this.onToggleManualInput,
     required this.onLocationSelected,
     required this.onError,
+    required this.onLocationQuery,
   });
 
   @override
@@ -34,34 +36,6 @@ class _LocationInputState extends State<LocationInput> {
     _latitudeController.dispose();
     _longitudeController.dispose();
     super.dispose();
-  }
-
-  Future<void> _searchLocation(String query) async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Check if query matches a predefined city (case-insensitive)
-      final matchedCity = LocationModel.predefinedCities.firstWhere(
-        (city) => city.name.toLowerCase() == query.toLowerCase(),
-        orElse: () => const LocationModel(name: ''),
-      );
-
-      if (matchedCity.name.isNotEmpty && matchedCity.latitude != null && matchedCity.longitude != null) {
-        widget.onLocationSelected(matchedCity.latitude!, matchedCity.longitude!);
-      } else {
-        final apiService = Provider.of<ApiService>(context, listen: false);
-        final response = await apiService.geocode(query);
-        widget.onLocationSelected(response.latitude, response.longitude);
-      }
-    } catch (e) {
-      widget.onError('Error finding location: $e. Try manual input.');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
 
   @override
@@ -85,49 +59,90 @@ class _LocationInputState extends State<LocationInput> {
         ),
         // Location input (autocomplete or manual)
         if (!widget.useManualInput)
-          TypeAheadField<String>(
+          TypeAheadField<GeocodeResponse>(
             suggestionsCallback: (pattern) async {
               if (pattern.isEmpty) return [];
-              return LocationModel.predefinedCities
-                  .where((city) => city.name.toLowerCase().contains(pattern.toLowerCase()))
-                  .map((city) => city.name)
-                  .toList();
-            },
-            itemBuilder: (context, suggestion) {
-              return ListTile(
-                title: Text(suggestion),
-              );
-            },
-            onSelected: (suggestion) {
-              _locationController.text = suggestion;
-              _searchLocation(suggestion);
+              setState(() => _isLoading = true);
+              try {
+                print('Fetching suggestions for: $pattern'); // Debug print
+                final apiService = Provider.of<ApiService>(context, listen: false);
+                final responses = await apiService.geocode(pattern);
+                print('Received ${responses.length} suggestions'); // Debug print
+                
+                // Debug print first suggestion's coordinates
+                if (responses.isNotEmpty) {
+                  print('First suggestion coordinates: ${responses.first.latitude}, ${responses.first.longitude}'); // Debug print
+                }
+                
+                return responses;
+              } catch (e) {
+                print('Error fetching suggestions: $e'); // Debug print
+                widget.onError('Error fetching locations: $e');
+                return [];
+              } finally {
+                setState(() => _isLoading = false);
+              }
             },
             builder: (context, controller, focusNode) {
-              _locationController.text = controller.text;
               return TextField(
-                controller: _locationController,
+                controller: controller,
                 focusNode: focusNode,
                 decoration: InputDecoration(
                   labelText: 'Place of Birth (e.g., Delhi, India)',
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: _isLoading
-                        ? null
-                        : () {
-                            final query = _locationController.text;
-                            if (query.isNotEmpty) {
-                              _searchLocation(query);
-                            }
-                          },
-                  ),
+                  suffixIcon: _isLoading 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      )
+                    : null,
                 ),
-                onSubmitted: (value) {
-                  if (value.isNotEmpty) {
-                    _searchLocation(value);
-                  }
+                onChanged: (value) {
+                  print('Location query updated: $value'); // Debug print
+                  widget.onLocationQuery(value);
                 },
               );
             },
+            onSelected: (suggestion) {
+              print('Location selected: ${suggestion.displayName}'); // Debug print
+              print('Raw suggestion data: $suggestion'); // Debug print
+              print('Coordinates selected: ${suggestion.latitude}, ${suggestion.longitude}'); // Debug print
+              
+              _locationController.text = suggestion.displayName;
+              widget.onLocationQuery(suggestion.displayName);
+              
+              // Ensure coordinates are not 0,0 before updating
+              if (suggestion.latitude != 0 || suggestion.longitude != 0) {
+                print('Updating coordinates to: ${suggestion.latitude}, ${suggestion.longitude}'); // Debug print
+                widget.onLocationSelected(suggestion.latitude, suggestion.longitude);
+                
+                // Update the manual input fields as well
+                _latitudeController.text = suggestion.latitude.toString();
+                _longitudeController.text = suggestion.longitude.toString();
+              } else {
+                print('Warning: Received 0,0 coordinates from suggestion'); // Debug print
+              }
+            },
+            itemBuilder: (context, suggestion) {
+              final address = suggestion.address;
+              final city = address['city'] ?? address['town'] ?? address['village'] ?? '';
+              final state = address['state'] ?? '';
+              final country = address['country'] ?? '';
+              final subtitle = [city, state, country].where((e) => e.isNotEmpty).join(', ');
+
+              return ListTile(
+                title: Text(suggestion.displayName),
+                subtitle: Text(subtitle),
+              );
+            },
+            emptyBuilder: (context) => const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text('No locations found'),
+            ),
           )
         else
           Row(

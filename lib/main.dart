@@ -5,6 +5,9 @@ import 'screens/chart_screen.dart';
 import 'screens/input_screen.dart';
 import 'providers/chart_provider.dart';
 import 'screens/input/services/input_service.dart';
+import 'providers/kundali_provider.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   runApp(
@@ -12,6 +15,7 @@ void main() {
       providers: [
         Provider<ApiService>(create: (_) => ApiService()),
         ChangeNotifierProvider<ChartProvider>(create: (_) => ChartProvider()),
+        ChangeNotifierProvider(create: (_) => KundaliProvider()),
         Provider<InputService>(
           create: (context) => InputService(context),
         ),
@@ -27,6 +31,7 @@ class VedicAstrologyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Vedic Astrology',
       theme: ThemeData(
         primarySwatch: Colors.blue,

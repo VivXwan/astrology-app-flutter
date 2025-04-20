@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'input/components/date_time_input.dart';
 import 'input/components/location_input.dart';
 import 'input/services/input_service.dart';
 import 'chart_screen.dart';
-import '../providers/chart_provider.dart';
 
 class InputScreen extends StatefulWidget {
   const InputScreen({super.key});
@@ -23,9 +21,10 @@ class _InputScreenState extends State<InputScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   bool _useManualInput = false;
+  String _locationQuery = '';
 
   void _handleDateSelected(DateTime date) {
-    setState(() {
+      setState(() {
       _selectedDate = date;
     });
   }
@@ -38,11 +37,11 @@ class _InputScreenState extends State<InputScreen> {
   }
 
   void _handleLocationSelected(double latitude, double longitude) {
-    setState(() {
+      setState(() {
       _latitude = latitude;
       _longitude = longitude;
-    });
-  }
+      });
+    }
 
   void _handleError(String error) {
     setState(() {
@@ -59,11 +58,24 @@ class _InputScreenState extends State<InputScreen> {
     });
   }
 
+  void _handleLocationQuery(String query) {
+    print('Location query updated: $query');
+    setState(() {
+      _locationQuery = query;
+    });
+  }
+
   void _submitForm(BuildContext context) async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
-      if (_selectedDate == null || _selectedTime == null || _latitude == null || _longitude == null || _tzOffset == null) {
+      print('Submit form - Current state:');
+      print('Location Query: $_locationQuery');
+      print('Manual Input: $_useManualInput');
+      print('Latitude: $_latitude');
+      print('Longitude: $_longitude');
+
+      if (_selectedDate == null || _selectedTime == null || _tzOffset == null) {
         setState(() {
           _errorMessage = 'Please fill all fields';
         });
@@ -77,21 +89,43 @@ class _InputScreenState extends State<InputScreen> {
 
       try {
         final inputService = InputService(context);
+
+        // If using location search and coordinates are not set, search for location first
+        if (!_useManualInput && (_latitude == null || _longitude == null)) {
+          print('Attempting to search location for: $_locationQuery');
+          if (_locationQuery.isEmpty) {
+            throw Exception('Please enter a location');
+          }
+          final (lat, lon) = await inputService.searchLocation(_locationQuery);
+          print('Search results - Lat: $lat, Long: $lon');
+          setState(() {
+            _latitude = lat;
+            _longitude = lon;
+          });
+        }
+
+        print('Generating chart with:');
+        print('Latitude: $_latitude');
+        print('Longitude: $_longitude');
+
         await inputService.generateChart(
           date: _selectedDate!,
           time: _selectedTime!,
-          latitude: _latitude!,
-          longitude: _longitude!,
+          latitude: _latitude,
+          longitude: _longitude,
           tzOffset: _tzOffset!,
+          locationQuery: (_latitude == null || _longitude == null) ? _locationQuery : null,
         );
+
         // Navigate to ChartScreen to display the chart
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ChartScreen()),
         );
       } catch (e) {
+        print('Error occurred: $e');
         setState(() {
-          _errorMessage = 'Error generating chart: $e';
+          _errorMessage = e.toString();
         });
       } finally {
         setState(() {
@@ -126,7 +160,8 @@ class _InputScreenState extends State<InputScreen> {
                 onToggleManualInput: _handleToggleManualInput,
                 onLocationSelected: _handleLocationSelected,
                 onError: _handleError,
-              ),
+                onLocationQuery: _handleLocationQuery,
+                ),
               const SizedBox(height: 8),
               Text(
                 _latitude != null && _longitude != null

@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'dart:math';
+import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 
 class NorthIndianChartPainter extends CustomPainter {
@@ -216,15 +216,6 @@ class NorthIndianChartPainter extends CustomPainter {
           houseNumberPos = bounds.center;
       }
 
-  //   // Adjust house number position to ensure it's within bounds
-  //   while (!housePath.contains(houseNumberPos)) {
-  //     // Move toward center if outside bounds
-  //     houseNumberPos = Offset(
-  //       houseNumberPos.dx + (center.dx - houseNumberPos.dx) * 0.1,
-  //       houseNumberPos.dy + (center.dy - houseNumberPos.dy) * 0.1,
-  //     );
-  //   }
-
       // Draw house number
       textPainter.text = TextSpan(
         // text: '${house + 1}',
@@ -305,6 +296,85 @@ class SouthIndianChartPainter extends CustomPainter {
 
   SouthIndianChartPainter({required this.ascendantSign, required this.planets});
 
+  // New function for planet painting logic
+  void _paintPlanets(Canvas canvas, Size size, double cellWidth, Offset center, List<List<dynamic>> signPositions) {
+    // 1. Group planets by sign
+    Map<String, List<String>> planetsBySign = {};
+    planets.forEach((planet, details) {
+      final sign = details['sign'];
+      if (!planetsBySign.containsKey(sign)) {
+        planetsBySign[sign] = [];
+      }
+      planetsBySign[sign]!.add(planet);
+    });
+
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    
+    // 2. Calculate optimal font size based on number of planets in most occupied cell
+    int maxPlanetsInCell = planetsBySign.values
+        .map((planets) => planets.length)
+        .reduce(max);
+    
+    double fontSize = min(
+      cellWidth * 0.15,  // Max 15% of cell width
+      cellWidth / (maxPlanetsInCell * 1.5)  // Ensure all planets fit with 50% padding
+    );
+
+    // 3. Paint planets with proper spacing
+    planetsBySign.forEach((sign, planetsInSign) {
+      // Find cell position for this sign
+      final pos = signPositions.firstWhere(
+        (p) => p[2] == sign,
+        orElse: () => [0, 0, ''] as List<Object>
+      );
+      
+      if (pos.isNotEmpty) {
+        final x = pos[0] as int;
+        final y = pos[1] as int;
+        
+        // Calculate starting position in cell
+        double startX = center.dx - (2 - x) * cellWidth + cellWidth * 0.1; // 10% padding from left
+        double startY = center.dy - (2 - y) * cellWidth + cellWidth * 0.3; // 30% padding from top
+        
+        // Calculate spacing between planets
+        double verticalSpacing = min(
+          fontSize * 1.2,  // 20% padding between lines
+          (cellWidth * 0.6) / planetsInSign.length  // 60% of cell height divided by number of planets
+        );
+
+        // Paint each planet in the sign
+        for (int i = 0; i < planetsInSign.length; i++) {
+          final planet = planetsInSign[i];
+          
+          textPainter.text = TextSpan(
+            text: _getPlanetAbbreviation(planet),
+            style: TextStyle(
+              color: Constants.planetColors[planet] ?? Colors.black,
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+            ),
+          );
+          
+          textPainter.layout();
+          
+          // Calculate position for this planet
+          double yOffset = startY + (i * verticalSpacing);
+          
+          // Ensure planet stays within cell bounds
+          yOffset = min(
+            yOffset,
+            center.dy - (2 - y) * cellWidth + cellWidth * 0.9 - textPainter.height
+          );
+          
+          textPainter.paint(
+            canvas,
+            Offset(startX, yOffset),
+          );
+        }
+      }
+    });
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
@@ -313,7 +383,6 @@ class SouthIndianChartPainter extends CustomPainter {
       ..strokeWidth = 2.0;
 
     final cellWidth = size.width / 4;
-    final cellHeight = size.height / 4;
     final center = Offset(size.width / 2, size.height / 2);
 
     // Draw outer square
@@ -322,31 +391,27 @@ class SouthIndianChartPainter extends CustomPainter {
       paint,
     );
 
-        // Draw inner square
-    canvas.drawRect(
-      Rect.fromCenter(center: center, width: size.width / 2, height: size.width / 2),
-      paint,
-    );
+    for (var i = 0; i < 4; i++) {
+      final multiplicationSign = i % 2 == 0 ? 1 : -1;
 
-    for (var i = 1; i < 4; i++) {
       canvas.drawLine(
-        Offset(i * cellWidth, 0),
-        Offset(i * cellWidth,cellHeight),
+        Offset(center.dx + cellWidth * multiplicationSign, center.dy - 2 * cellWidth),
+        Offset(center.dx + cellWidth * multiplicationSign, center.dy + 2 * cellWidth),
         paint,
       );
       canvas.drawLine(
-        Offset(0, i * cellHeight),
-        Offset(cellWidth, i * cellHeight),
+        Offset(center.dx - 2 * cellWidth, center.dy + cellWidth * multiplicationSign),
+        Offset(center.dx + 2 * cellWidth, center.dy + cellWidth * multiplicationSign),
         paint,
       );
       canvas.drawLine(
-        Offset((4-i) * cellWidth, 4 * cellHeight),
-        Offset((4-i) * cellWidth, 3 * cellHeight),
+        Offset(center.dx, center.dy + 2 * cellWidth * multiplicationSign),
+        Offset(center.dx, center.dy + cellWidth * multiplicationSign),
         paint,
       );
       canvas.drawLine(
-        Offset(4 * cellWidth, (4-i) * cellHeight),
-        Offset(3 * cellWidth, (4-i) * cellHeight),
+        Offset(center.dx + 2 * cellWidth * multiplicationSign, center.dy),
+        Offset(center.dx + cellWidth * multiplicationSign, center.dy),
         paint,
       );
     }
@@ -354,8 +419,9 @@ class SouthIndianChartPainter extends CustomPainter {
     // Assign signs (fixed positions)
     final signPositions = [
       [0, 0, 'Pisces'], [1, 0, 'Aries'], [2, 0, 'Taurus'], [3, 0, 'Gemini'],
-      [3, 1, 'Cancer'], [3, 2, 'Leo'], [3, 3, 'Virgo'], [2, 3, 'Libra'],
-      [1, 3, 'Scorpio'], [0, 3, 'Sagittarius'], [0, 2, 'Capricorn'], [0, 1, 'Aquarius'],
+      [0, 1, 'Aquarius'],[3, 1, 'Cancer'],
+      [0, 2, 'Capricorn'], [3, 2, 'Leo'],
+      [0, 3, 'Sagittarius'], [1, 3, 'Scorpio'], [2, 3, 'Libra'], [3, 3, 'Virgo']
     ];
 
     // Calculate houses based on ascendant
@@ -374,17 +440,20 @@ class SouthIndianChartPainter extends CustomPainter {
       final house = houseMap[sign] ?? 0;
       final textSpan = TextSpan(
         text: '$sign${house > 0 ? '\nH$house' : ''}',
-        style: TextStyle(color: Colors.black, fontSize: 12),
+        style: TextStyle(color: Colors.black, fontSize: cellWidth * 0.08),
       );
       textPainter.text = textSpan;
       textPainter.layout();
       textPainter.paint(
         canvas,
-        Offset(x * cellWidth + 5, y * cellHeight + 5),
+        Offset(center.dx - (2 - x) * cellWidth + 5, center.dy - (2 - y) * cellWidth + 5),
       );
     }
 
-    // Place planets
+    // Call the new planet painting function
+    _paintPlanets(canvas, size, cellWidth, center, signPositions);
+
+    /* Commenting out old planet painting logic
     planets.forEach((planet, details) {
       final sign = details['sign'];
       final pos = signPositions.firstWhere((p) => p[2] == sign, orElse: () => [0, 0, '']);
@@ -395,7 +464,7 @@ class SouthIndianChartPainter extends CustomPainter {
           text: _getPlanetAbbreviation(planet),
           style: TextStyle(
             color: Constants.planetColors[planet] ?? Colors.black,
-            fontSize: 12,
+            fontSize: cellWidth * 0.1,
           ),
         );
         textPainter.text = textSpan;
@@ -403,12 +472,13 @@ class SouthIndianChartPainter extends CustomPainter {
         textPainter.paint(
           canvas,
           Offset(
-            x * cellWidth + cellWidth / 2,
-            y * cellHeight + cellHeight / 2,
+            center.dx - (2 - x) * cellWidth + cellWidth / 2,
+            center.dy - (2 - y) * cellWidth + cellWidth / 2,
           ),
         );
       }
     });
+    */
   }
 
   String _getPlanetAbbreviation(String planet) {
