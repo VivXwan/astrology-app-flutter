@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/chart_provider.dart';
-import '../../../models/kundali_details.dart';
 
 class KundaliTableWidget extends StatelessWidget {
   const KundaliTableWidget({super.key});
@@ -15,13 +14,14 @@ class KundaliTableWidget extends StatelessWidget {
         }
 
         final kundali = provider.chart!.data['kundali'] as Map<String, dynamic>;
-        
+        final birth_data = provider.chart!.data['birth_data'] as Map<String, dynamic>;
+
         return Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBasicInfoTable(kundali),
+              _buildBasicInfoTable(birth_data),
               const SizedBox(height: 16),
               _buildPlanetaryPositionsTable(kundali),
             ],
@@ -31,7 +31,15 @@ class KundaliTableWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildBasicInfoTable(Map<String, dynamic> kundali) {
+  Widget _buildBasicInfoTable(Map<String, dynamic> birth_data) {
+    final tz_multiplier = birth_data['tz_offset'] > 0 ? 1 : -1;
+    final tz_sign = birth_data['tz_offset'] > 0 ? '+' : '-';
+    final tz_dir = tz_multiplier == 1 ? 'East of GMT' : 'West of GMT';
+    final timezone_hour = (birth_data['tz_offset'] / 1).floor();
+    final timezone_minute = (birth_data['tz_offset'] % 1 * 60).floor();
+    final timezone = '$timezone_hour:$timezone_minute';
+    final birth_hour = birth_data['hour'] + tz_multiplier * timezone_hour;
+    final birth_minute = birth_data['minute'] + tz_multiplier * timezone_minute;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -39,7 +47,7 @@ class KundaliTableWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Basic Information',
+              'Birth Details',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -52,11 +60,10 @@ class KundaliTableWidget extends StatelessWidget {
                 1: FlexColumnWidth(2),
               },
               children: [
-                _buildTableRow('Ayanamsa', '${kundali['ayanamsa'].toStringAsFixed(2)}°'),
-                _buildTableRow('Ayanamsa Type', kundali['ayanamsa_type']),
-                _buildTableRow('Ascendant Sign', kundali['ascendant']['sign']),
-                _buildTableRow('Ascendant Longitude', kundali['ascendant']['longitude_dms']),
-                _buildTableRow('Midheaven', kundali['midheaven_dms']),
+                _buildTableRow('Birth Date', '${birth_data['day']}-${birth_data['month']}-${birth_data['year']}'),
+                _buildTableRow('Birth Time', '$birth_hour:$birth_minute'),
+                _buildTableRow('Birth Place', 'Latitude: ${birth_data['latitude']}, Longitude: ${birth_data['longitude']}'),
+                _buildTableRow('Timezone', '$tz_sign$timezone ($tz_dir)')
               ],
             ),
           ],

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../utils/constants.dart';
+import '../models/location_model.dart';
 
 class GeocodeResponse {
   final double latitude;
@@ -35,7 +36,7 @@ class GeocodeResponse {
       osmType: json['osm_type'] ?? '',
       osmId: json['osm_id']?.toString() ?? '',
       type: json['type'] ?? '',
-      classType: json['class'] ?? '',
+      classType: json['class_type'] ?? '',
       importance: json['importance']?.toDouble() ?? 0.0,
       address: Map<String, String>.from(json['address'] ?? {}),
     );
@@ -142,15 +143,12 @@ class ApiService {
       print('Status: ${response.statusCode}');
       print('Data: ${response.data}');
       
-      // Handle both single object and array responses
-      if (response.data is List) {
-        return (response.data as List)
-            .map((item) => GeocodeResponse.fromJson(item))
-            .toList();
-      } else {
-        // If single result, wrap in list
-        return [GeocodeResponse.fromJson(response.data)];
+      if (response.data is Map<String, dynamic> && response.data['locations'] != null) {
+        final locations = response.data['locations'] as List;
+        return locations.map((item) => GeocodeResponse.fromJson(item)).toList();
       }
+      
+      throw Exception('Invalid response format from geocoding API');
     } on DioException catch (e) {
       print('\n🚨 Geocoding Failed:');
       print('Error Type: ${e.type}');
@@ -158,6 +156,27 @@ class ApiService {
       print('Response Status: ${e.response?.statusCode}');
       print('Response Data: ${e.response?.data}');
       throw Exception('Failed to geocode location: ${e.message}');
+    }
+  }
+
+  Future<List<LocationModel>> searchLocation(String query) async {
+    try {
+      print('\n🔍 Location Search Request:');
+      print('Query: $query');
+
+      final geocodeResults = await geocode(query);
+      
+      return geocodeResults.map((result) => LocationModel(
+        name: query,
+        displayName: result.displayName,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        address: result.address,
+      )).toList();
+    } catch (e) {
+      print('\n🚨 Location Search Failed:');
+      print('Error: $e');
+      throw Exception('Failed to search location: $e');
     }
   }
 }
