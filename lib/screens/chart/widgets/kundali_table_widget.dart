@@ -38,8 +38,7 @@ class KundaliTableWidget extends StatelessWidget {
     final timezone_hour = (birth_data['tz_offset'] / 1).floor();
     final timezone_minute = (birth_data['tz_offset'] % 1 * 60).floor();
     final timezone = '$timezone_hour:$timezone_minute';
-    final birth_hour = birth_data['hour'] + tz_multiplier * timezone_hour;
-    final birth_minute = birth_data['minute'] + tz_multiplier * timezone_minute;
+    
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -61,7 +60,7 @@ class KundaliTableWidget extends StatelessWidget {
               },
               children: [
                 _buildTableRow('Birth Date', '${birth_data['day']}-${birth_data['month']}-${birth_data['year']}'),
-                _buildTableRow('Birth Time', '$birth_hour:$birth_minute'),
+                _buildTableRow('Birth Time', '${birth_data['hour'].toString().padLeft(2, '0')}:${birth_data['minute'].toString().padLeft(2, '0')}'),
                 _buildTableRow('Birth Place', 'Latitude: ${birth_data['latitude']}, Longitude: ${birth_data['longitude']}'),
                 _buildTableRow('Timezone', '$tz_sign$timezone ($tz_dir)')
               ],

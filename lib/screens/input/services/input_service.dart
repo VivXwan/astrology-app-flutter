@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../services/api_service.dart';
-import '../models/location_model.dart';
 import '../../../providers/chart_provider.dart';
 
 class InputService {

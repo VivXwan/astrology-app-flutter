@@ -25,9 +25,10 @@ class LocationInput extends StatefulWidget {
 }
 
 class _LocationInputState extends State<LocationInput> {
-  final TextEditingController _typeAheadController = TextEditingController();
   LocationModel? _selectedCity;
   List<LocationModel> _searchResults = [];
+  TextEditingController? _textEditingController;
+  DateTime? _lastSelectionTime; // Timestamp of last selection instead of a boolean flag
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +46,7 @@ class _LocationInputState extends State<LocationInput> {
         if (!widget.useManualInput)
           TypeAheadField<LocationModel>(
             builder: (context, controller, focusNode) {
+              _textEditingController = controller;
               return TextField(
                 controller: controller,
                 focusNode: focusNode,
@@ -58,6 +60,7 @@ class _LocationInputState extends State<LocationInput> {
                       setState(() {
                         _selectedCity = null;
                         _searchResults = [];
+                        _lastSelectionTime = null; // Reset selection timestamp
                       });
                     },
                   ),
@@ -65,18 +68,35 @@ class _LocationInputState extends State<LocationInput> {
               );
             },
             suggestionsCallback: (pattern) async {
+              print('🔍 suggestionsCallback called with pattern: $pattern');
+              if (_lastSelectionTime != null) {
+                final timeSinceSelection = DateTime.now().difference(_lastSelectionTime!);
+                print('⏱ Time since last selection: ${timeSinceSelection.inMilliseconds}ms');
+                
+                // Block API calls if within debounce window (1.5 seconds)
+                if (timeSinceSelection.inMilliseconds < 1500) {
+                  print('🛑 Blocking API call - within debounce period');
+                  return []; // Return empty list to hide dropdown
+                }
+              }
+              
               if (pattern.isEmpty) {
+                print('📝 Pattern empty, returning empty list');
                 return [];
               }
+              
               widget.onLocationQuery(pattern);
               try {
+                print('🌐 Calling API with query: $pattern');
                 final apiService = Provider.of<ApiService>(context, listen: false);
                 final results = await apiService.searchLocation(pattern);
                 setState(() {
                   _searchResults = results;
                 });
+                print('✅ API returned ${results.length} results');
                 return results;
               } catch (e) {
+                print('❌ API error: $e');
                 widget.onError(e.toString());
                 return [];
               }
@@ -87,29 +107,30 @@ class _LocationInputState extends State<LocationInput> {
               );
             },
             onSelected: (LocationModel suggestion) {
+              print('🎯 Item selected: ${suggestion.displayName}');
+              
+              // Record selection timestamp immediately
+              _lastSelectionTime = DateTime.now();
+              print('🕒 Selection timestamp recorded: ${_lastSelectionTime}');
+              
               setState(() {
                 _selectedCity = suggestion;
-                _typeAheadController.text = suggestion.displayName;
               });
+              
               widget.onLocationSelected(suggestion.latitude, suggestion.longitude);
+              
+              // Update the text field with a slight delay
+              Future.delayed(Duration(milliseconds: 100), () {
+                print('⏱ Updating text after 100ms');
+                if (_textEditingController != null) {
+                  print('📝 Setting text to: ${suggestion.displayName}');
+                  _textEditingController!.text = suggestion.displayName;
+                }
+              });
             },
-            debounceDuration: Duration(milliseconds: 500),
+            hideOnSelect: true,
             hideOnEmpty: true,
-            hideOnLoading: false,
-            hideOnError: true,
-            loadingBuilder: (context) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: CircularProgressIndicator(),
-              ),
-            ),
-            errorBuilder: (context, error) => Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                'Error: $error',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
+            debounceDuration: Duration(milliseconds: 500),
             emptyBuilder: (context) => Padding(
               padding: const EdgeInsets.all(8.0),
               child: Text('No locations found'),
@@ -121,7 +142,6 @@ class _LocationInputState extends State<LocationInput> {
 
   @override
   void dispose() {
-    _typeAheadController.dispose();
     super.dispose();
   }
-} 
+}
