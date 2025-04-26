@@ -101,12 +101,16 @@ class ApiService {
       print('Location: $latitude, $longitude');
       print('Timezone Offset: $tzOffset');
 
+      // Ensure hour and minute are properly formatted as numbers
+      final formattedHour = hour.toStringAsFixed(1);
+      final formattedMinute = minute.toStringAsFixed(1);
+
       final requestData = {
         'year': year,
         'month': month,
         'day': day,
-        'hour': hour,
-        'minute': minute,
+        'hour': double.parse(formattedHour),
+        'minute': double.parse(formattedMinute),
         'latitude': latitude,
         'longitude': longitude,
         'tz_offset': tzOffset,

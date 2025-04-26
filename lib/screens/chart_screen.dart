@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/chart_provider.dart';
+import '../providers/dasha_provider.dart';
 import 'chart/widgets/chart_widget.dart';
 import 'chart/widgets/kundali_table_widget.dart';
+import 'chart/widgets/dasha_timeline_widget.dart';
 
 class ChartScreen extends StatefulWidget {
   const ChartScreen({super.key});
@@ -43,6 +45,10 @@ class _ChartScreenState extends State<ChartScreen> with AutomaticKeepAliveClient
                   child: ChartWidget(chart: provider.chart!),
                 ),
                 const KundaliTableWidget(),
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: DashaTimelineWidget(),
+                ),
               ],
             ),
           ),

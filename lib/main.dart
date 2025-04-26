@@ -6,6 +6,7 @@ import 'screens/input_screen.dart';
 import 'providers/chart_provider.dart';
 import 'screens/input/services/input_service.dart';
 import 'providers/kundali_provider.dart';
+import 'providers/dasha_provider.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -16,6 +17,7 @@ void main() {
         Provider<ApiService>(create: (_) => ApiService()),
         ChangeNotifierProvider<ChartProvider>(create: (_) => ChartProvider()),
         ChangeNotifierProvider(create: (_) => KundaliProvider()),
+        ChangeNotifierProvider(create: (_) => DashaProvider()),
         Provider<InputService>(
           create: (context) => InputService(context),
         ),
@@ -45,7 +47,7 @@ class VedicAstrologyApp extends StatelessWidget {
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
-      ),
+        ),
       home: const InputScreen(),
       routes: {
         '/input': (context) => const InputScreen(),

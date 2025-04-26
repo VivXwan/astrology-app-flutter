@@ -26,8 +26,8 @@ class _InputScreenState extends State<InputScreen> {
   void _handleDateSelected(DateTime date) {
       setState(() {
       _selectedDate = date;
-    });
-  }
+      });
+    }
 
   void _handleTimeSelected(TimeOfDay time, double tzOffset) {
     setState(() {
@@ -60,10 +60,10 @@ class _InputScreenState extends State<InputScreen> {
 
   void _handleLocationQuery(String query) {
     print('Location query updated: $query');
-    setState(() {
-      _locationQuery = query;
-    });
-  }
+        setState(() {
+          _locationQuery = query;
+        });
+      }
 
   void _submitForm(BuildContext context) async {
     if (_formKey.currentState!.validate()) {
@@ -153,7 +153,7 @@ class _InputScreenState extends State<InputScreen> {
                 selectedDate: _selectedDate,
                 selectedTime: _selectedTime,
                 timezoneOffset: _tzOffset,
-              ),
+                ),
               const SizedBox(height: 16),
               LocationInput(
                 useManualInput: _useManualInput,

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/chart.dart';
 import '../services/api_service.dart';
 import 'kundali_provider.dart';
+import 'dasha_provider.dart';
 import '../main.dart';
 
 class ChartProvider with ChangeNotifier {
@@ -45,6 +46,10 @@ class ChartProvider with ChangeNotifier {
       // Update KundaliProvider with the kundali details
       final kundaliProvider = Provider.of<KundaliProvider>(navigatorKey.currentContext!, listen: false);
       kundaliProvider.setKundaliDetails(data['kundali']);
+
+      // Update DashaProvider with the vimshottari dasha data
+      final dashaProvider = Provider.of<DashaProvider>(navigatorKey.currentContext!, listen: false);
+      dashaProvider.setDashaData(data);
     } catch (e) {
       _error = e.toString();
     } finally {
