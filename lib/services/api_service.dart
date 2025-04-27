@@ -89,21 +89,20 @@ class ApiService {
     required int day,
     required double hour,
     required double minute,
+    required double seconds,
     required double latitude,
     required double longitude,
-    double tzOffset = 5.5,
-    String? ayanamsaType,
   }) async {
     try {
       print('\n📊 Preparing Chart Request:');
       print('Date: $year-$month-$day');
-      print('Time: $hour:$minute');
+      print('Time: $hour:$minute:$seconds');
       print('Location: $latitude, $longitude');
-      print('Timezone Offset: $tzOffset');
 
-      // Ensure hour and minute are properly formatted as numbers
+      // Ensure hour, minute and seconds are properly formatted as numbers
       final formattedHour = hour.toStringAsFixed(1);
       final formattedMinute = minute.toStringAsFixed(1);
+      final formattedSeconds = seconds.toStringAsFixed(1);
 
       final requestData = {
         'year': year,
@@ -111,9 +110,9 @@ class ApiService {
         'day': day,
         'hour': double.parse(formattedHour),
         'minute': double.parse(formattedMinute),
+        'seconds': double.parse(formattedSeconds),
         'latitude': latitude,
         'longitude': longitude,
-        'tz_offset': tzOffset,
       };
 
       print('Sending request with data: $requestData');

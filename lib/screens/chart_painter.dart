@@ -232,34 +232,9 @@ class NorthIndianChartPainter extends CustomPainter {
         houseNumberPos.translate(-textPainter.width / 2, -textPainter.height / 2),
       );
 
-      // Planets (stack vertically below sign number)
-      final housePlanets = planetsByHouse[house];
-      if (housePlanets.isNotEmpty) {
-        final startPos = Offset(
-          bounds.center.dx,
-          bounds.center.dy,
-        );
-        for (var i = 0; i < housePlanets.length; i++) {
-          final planet = housePlanets[i];
-          final planetPos = Offset(
-            startPos.dx,
-            startPos.dy + i * textPainter.height * 1.2,
-          );
-          if (housePath.contains(planetPos)) {
-            textPainter.text = TextSpan(
-              text: _getPlanetAbbreviation(planet),
-              style: TextStyle(
-                color: Constants.planetColors[planet] ?? Colors.black,
-                fontSize: size.width * 0.05,
-              ),
-            );
-            textPainter.layout();
-            textPainter.paint(
-              canvas,
-              planetPos.translate(-textPainter.width / 2, -textPainter.height / 2),
-            );
-          }
-        }
+      // Draw planets in this house
+      if (planetsByHouse[house].isNotEmpty) {
+        _drawPlanetsInHouse(canvas, bounds, planetsByHouse[house], house + 1);
       }
     }
   }
@@ -278,6 +253,31 @@ class NorthIndianChartPainter extends CustomPainter {
       'Lagna': 'La',
     };
     return abbreviations[planet] ?? planet[0];
+  }
+
+  Color _getPlanetColor(String planet) {
+    switch (planet.toLowerCase()) {
+      case 'sun':
+        return Colors.orange;
+      case 'moon':
+        return Colors.blue;
+      case 'mars':
+        return Colors.red;
+      case 'mercury':
+        return Colors.green;
+      case 'jupiter':
+        return Colors.purple;
+      case 'venus':
+        return Colors.pink;
+      case 'saturn':
+        return Colors.grey;
+      case 'rahu':
+        return Colors.brown;
+      case 'ketu':
+        return Colors.black;
+      default:
+        return Colors.black;
+    }
   }
 
   @override
@@ -452,33 +452,6 @@ class SouthIndianChartPainter extends CustomPainter {
 
     // Call the new planet painting function
     _paintPlanets(canvas, size, cellWidth, center, signPositions);
-
-    /* Commenting out old planet painting logic
-    planets.forEach((planet, details) {
-      final sign = details['sign'];
-      final pos = signPositions.firstWhere((p) => p[2] == sign, orElse: () => [0, 0, '']);
-      if (pos.isNotEmpty) {
-        final x = pos[0] as int;
-        final y = pos[1] as int;
-        final textSpan = TextSpan(
-          text: _getPlanetAbbreviation(planet),
-          style: TextStyle(
-            color: Constants.planetColors[planet] ?? Colors.black,
-            fontSize: cellWidth * 0.1,
-          ),
-        );
-        textPainter.text = textSpan;
-        textPainter.layout();
-        textPainter.paint(
-          canvas,
-          Offset(
-            center.dx - (2 - x) * cellWidth + cellWidth / 2,
-            center.dy - (2 - y) * cellWidth + cellWidth / 2,
-          ),
-        );
-      }
-    });
-    */
   }
 
   String _getPlanetAbbreviation(String planet) {
@@ -500,5 +473,159 @@ class SouthIndianChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant SouthIndianChartPainter oldDelegate) {
     return ascendantSign != oldDelegate.ascendantSign || planets != oldDelegate.planets;
+  }
+}
+
+void _drawPlanetsInHouse(Canvas canvas, Rect bounds, List<String> planets, int house) {
+  if (planets.isEmpty) return;
+
+  final textPainter = TextPainter(
+    textDirection: TextDirection.ltr,
+    textAlign: TextAlign.center,
+  );
+
+  // Calculate available space (reduced to prevent overflow)
+  final availableWidth = bounds.width * 0.85;  // Use 70% of house width
+  final availableHeight = bounds.height * 0.85;  // Use 60% of house height
+  
+  // Calculate grid dimensions
+  final planetCount = planets.length;
+  int columns = (planetCount > 3) ? 2 : 1;  // Use 2 columns if more than 3 planets
+  int rows = (planetCount + columns - 1) ~/ columns;  // Ceiling division
+  
+  // Calculate maximum font size that will fit in a cell
+  double fontSize = min(
+    availableWidth / (columns * 3),  // Width constraint
+    availableHeight / (rows * 3)     // Height constraint
+  );
+  fontSize = min(fontSize, 14.0);    // Cap maximum size
+  
+  // Pre-calculate text dimensions for all planets
+  List<Size> textSizes = [];
+  double maxTextWidth = 0;
+  double maxTextHeight = 0;
+  
+  for (String planet in planets) {
+    textPainter.text = TextSpan(
+      text: _getPlanetAbbreviation(planet),
+      style: TextStyle(
+        color: _getPlanetColor(planet),
+        fontSize: fontSize,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+    textPainter.layout();
+    textSizes.add(Size(textPainter.width, textPainter.height));
+    maxTextWidth = max(maxTextWidth, textPainter.width);
+    maxTextHeight = max(maxTextHeight, textPainter.height);
+  }
+  
+  // Calculate total grid size
+  final totalGridWidth = columns * (maxTextWidth * 1.5);  // 1.5x spacing between columns
+  final totalGridHeight = rows * (maxTextHeight * 1.5);   // 1.5x spacing between rows
+  
+  // Calculate starting position to center the entire grid
+  final startX = bounds.center.dx - (totalGridWidth / 2);
+  final startY = bounds.center.dy - (totalGridHeight / 2);
+  
+  // Adjust grid position based on house location
+  double adjustX = 0;
+  double adjustY = 0;
+  
+  switch (house) {
+    case 1: // Top
+      adjustY = -bounds.height * 0.1;
+      break;
+    case 4: // Left
+      adjustX = -bounds.width * 0.1;
+      break;
+    case 7: // Bottom
+      adjustY = bounds.height * 0.1;
+      break;
+    case 10: // Right
+      adjustX = bounds.width * 0.1;
+      break;
+    case 2:
+    case 3:
+      adjustX = -bounds.width * 0.05;
+      adjustY = -bounds.height * 0.05;
+      break;
+    case 5:
+    case 6:
+      adjustX = -bounds.width * 0.05;
+      adjustY = bounds.height * 0.05;
+      break;
+    case 8:
+    case 9:
+      adjustX = bounds.width * 0.05;
+      adjustY = bounds.height * 0.05;
+      break;
+    case 11:
+    case 12:
+      adjustX = -bounds.width * 0.05;
+      adjustY = -bounds.height * 0.05;
+      break;
+  }
+
+  // Draw each planet
+  for (int i = 0; i < planets.length; i++) {
+    final row = i ~/ columns;
+    final col = i % columns;
+    
+    textPainter.text = TextSpan(
+      text: _getPlanetAbbreviation(planets[i]),
+      style: TextStyle(
+        color: _getPlanetColor(planets[i]),
+        fontSize: fontSize,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+    textPainter.layout();
+
+    // Calculate centered position within the grid
+    final x = startX + (col * maxTextWidth * 1.5) + adjustX;
+    final y = startY + (row * maxTextHeight * 1.5) + adjustY;
+
+    textPainter.paint(canvas, Offset(x, y));
+  }
+}
+
+String _getPlanetAbbreviation(String planet) {
+  switch (planet.toLowerCase()) {
+    case 'sun': return 'Su';
+    case 'moon': return 'Mo';
+    case 'mars': return 'Ma';
+    case 'mercury': return 'Me';
+    case 'jupiter': return 'Ju';
+    case 'venus': return 'Ve';
+    case 'saturn': return 'Sa';
+    case 'rahu': return 'Ra';
+    case 'ketu': return 'Ke';
+    default: return '';
+  }
+}
+
+Color _getPlanetColor(String planet) {
+  switch (planet.toLowerCase()) {
+    case 'sun':
+      return Colors.orange;
+    case 'moon':
+      return Colors.blue;
+    case 'mars':
+      return Colors.red;
+    case 'mercury':
+      return Colors.green;
+    case 'jupiter':
+      return Colors.purple;
+    case 'venus':
+      return Colors.pink;
+    case 'saturn':
+      return Colors.grey;
+    case 'rahu':
+      return Colors.brown;
+    case 'ketu':
+      return Colors.black;
+    default:
+      return Colors.black;
   }
 }

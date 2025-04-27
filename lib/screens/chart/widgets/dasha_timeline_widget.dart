@@ -86,7 +86,7 @@ class DashaTimelineWidget extends StatelessWidget {
                 );
               },
               child: SizedBox(
-                height: 140,
+                height: 170,  // Increased height to accommodate arrows
                 child: _buildCurrentView(provider),
               ),
             ),
@@ -116,25 +116,34 @@ class DashaTimelineWidget extends StatelessWidget {
     VoidCallback onBack,
     VoidCallback onForward,
   ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          onPressed: canGoBack ? onBack : null,
-          icon: Icon(
-            Icons.arrow_back,
-            color: canGoBack ? Colors.black87 : Colors.black26,
+    return SizedBox(
+      height: 30,  // Fixed height for arrow container
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: canGoBack ? onBack : null,
+            icon: Icon(
+              Icons.arrow_back,
+              color: canGoBack ? Colors.black87 : Colors.black26,
+              size: 20,
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        IconButton(
-          onPressed: canGoForward ? onForward : null,
-          icon: Icon(
-            Icons.arrow_forward,
-            color: canGoForward ? Colors.black87 : Colors.black26,
+          const SizedBox(width: 16),
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: canGoForward ? onForward : null,
+            icon: Icon(
+              Icons.arrow_forward,
+              color: canGoForward ? Colors.black87 : Colors.black26,
+              size: 20,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -328,84 +337,99 @@ class DashaTimelineWidget extends StatelessWidget {
     bool isMahaDasha = false,
   }) {
     final dateFormat = DateFormat('dd-MM-yyyy');
-    final durationYears = dasha.durationYears.toStringAsFixed(1);
+    
+    // Calculate duration in years, months, and days
+    final Duration duration = dasha.endDate.difference(dasha.startDate);
+    final int years = duration.inDays ~/ 365;
+    final int months = (duration.inDays % 365) ~/ 30;
+    final int days = (duration.inDays % 365) % 30;
+    
+    // Format duration to only show non-zero units
+    String formattedDuration = '';
+    if (years > 0) formattedDuration += '${years}Y ';
+    if (months > 0 || (years > 0 && days > 0)) formattedDuration += '${months}M ';
+    if (days > 0 || formattedDuration.isEmpty) formattedDuration += '${days}D';
+    formattedDuration = formattedDuration.trim();
 
     // Fixed dimensions for all dasha types
     const double tileWidth = 120.0;
-    const double containerHeight = 120.0;
+    const double containerHeight = 110.0;  // Reduced from 120
     const double fontSize = 14.0;
     const double dateFontSize = 10.0;
     const double durationFontSize = 12.0;
-    const double paddingSize = 8.0;
+    const double paddingSize = 6.0;  // Reduced from 8
 
-    // Border styles for different dasha types
-    BoxDecoration getDecoration() {
-      final baseColor = _getPlanetColor(dasha.planet);
-      
-      // Regular containers with different border styles
-      return BoxDecoration(
-        color: baseColor,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: Colors.black.withOpacity(isMahaDasha ? 0.8 : isAntarDasha ? 0.6 : 0.4),
-          width: isMahaDasha ? 2 : isAntarDasha ? 1.5 : 1,
-        ),
-      );
-    }
+    // Get planet color for text
+    final planetColor = _getPlanetColor(dasha.planet);
 
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: tileWidth,
-        height: containerHeight,
-        child: Column(
-          children: [
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(paddingSize),
-                decoration: getDecoration(),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Text(
-                      dasha.planet,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: fontSize,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'From - ${dateFormat.format(dasha.startDate)}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: dateFontSize,
-                      ),
-                    ),
-                    Text(
-                      'To - ${dateFormat.format(dasha.endDate)}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: dateFontSize,
-                      ),
-                    ),
-                  ],
+    return SizedBox(
+      width: tileWidth,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: onTap,
+            child: Container(
+              height: containerHeight,
+              width: double.infinity,
+              padding: const EdgeInsets.all(paddingSize),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: Colors.black.withOpacity(isMahaDasha ? 0.8 : isAntarDasha ? 0.6 : 0.4),
+                  width: isMahaDasha ? 2 : isAntarDasha ? 1.5 : 1,
                 ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '$durationYears years',
-              style: const TextStyle(
-                fontSize: durationFontSize,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Text(
+                    dasha.planet,
+                    style: TextStyle(
+                      color: planetColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: fontSize,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'From - ${dateFormat.format(dasha.startDate)}',
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: dateFontSize,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'To - ${dateFormat.format(dasha.endDate)}',
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: dateFontSize,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  // Only show touch indicator for pratyantar dasha containers
+                  if (onTap != null && isPratyantarDasha) ...[
+                    const Icon(
+                      Icons.touch_app,
+                      size: 16,
+                      color: Colors.black54,
+                    ),
+                  ],
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            formattedDuration,
+            style: const TextStyle(
+              fontSize: durationFontSize,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

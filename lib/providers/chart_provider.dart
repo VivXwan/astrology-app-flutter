@@ -15,15 +15,12 @@ class ChartProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  Future<void> fetchChart({
-    required int year,
-    required int month,
-    required int day,
-    required double hour,
-    required double minute,
-    required double latitude,
-    required double longitude,
-    double tzOffset = 5.5,
+  Future<void> generateChart({
+    required DateTime date,
+    required TimeOfDay time,
+    required double? latitude,
+    required double? longitude,
+    String? locationQuery,
   }) async {
     _isLoading = true;
     _error = null;
@@ -32,14 +29,14 @@ class ChartProvider with ChangeNotifier {
     try {
       final apiService = ApiService();
       final data = await apiService.getChart(
-        year: year,
-        month: month,
-        day: day,
-        hour: hour,
-        minute: minute,
-        latitude: latitude,
-        longitude: longitude,
-        tzOffset: tzOffset,
+        year: date.year,
+        month: date.month,
+        day: date.day,
+        hour: time.hour.toDouble(),
+        minute: time.minute.toDouble(),
+        seconds: 0.0,
+        latitude: latitude ?? 0.0,
+        longitude: longitude ?? 0.0,
       );
       _chart = Chart.fromJson(data);
 

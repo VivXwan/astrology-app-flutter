@@ -28,45 +28,17 @@ class InputService {
     required TimeOfDay time,
     required double? latitude,
     required double? longitude,
-    required double tzOffset,
     String? locationQuery,
   }) async {
     try {
-      // If we have coordinates, use them directly
-      if (latitude != null && longitude != null) {
-        final provider = Provider.of<ChartProvider>(context, listen: false);
-        await provider.fetchChart(
-          year: date.year,
-          month: date.month,
-          day: date.day,
-          hour: time.hour.toDouble(),
-          minute: time.minute.toDouble(),
-          latitude: latitude,
-          longitude: longitude,
-          tzOffset: tzOffset,
-        );
-        return;
-      }
-
-      // Only search for coordinates if we don't have them
-      if (locationQuery != null && locationQuery.isNotEmpty) {
-        final (lat, lon) = await searchLocation(locationQuery);
-        final provider = Provider.of<ChartProvider>(context, listen: false);
-        await provider.fetchChart(
-          year: date.year,
-          month: date.month,
-          day: date.day,
-          hour: time.hour.toDouble(),
-          minute: time.minute.toDouble(),
-          latitude: lat,
-          longitude: lon,
-          tzOffset: tzOffset,
-        );
-        return;
-      }
-
-      // If we reach here, we have neither coordinates nor location query
-      throw Exception('Location coordinates are required');
+      final chartProvider = Provider.of<ChartProvider>(context, listen: false);
+      await chartProvider.generateChart(
+        date: date,
+        time: time,
+        latitude: latitude,
+        longitude: longitude,
+        locationQuery: locationQuery,
+      );
     } catch (e) {
       throw Exception('Error generating chart: $e');
     }
