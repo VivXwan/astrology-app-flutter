@@ -5,15 +5,45 @@ import '../services/api_service.dart';
 import 'kundali_provider.dart';
 import 'dasha_provider.dart';
 import '../main.dart';
+import '../utils/astrology_utils.dart'; // Correct import now
+import '../utils/constants.dart'; // Need this for the prepareVargaChartData fallback
 
 class ChartProvider with ChangeNotifier {
-  Chart? _chart;
+  Chart? _chart; // Stores the API response
   bool _isLoading = false;
   String? _error;
+
+  // State for multiple charts
+  int _numberOfCharts = 1;
+  List<String> _selectedChartTypes = ['D-1']; // Default: Show only D-1
+  final Map<String, Chart?> _chartDataCache = {}; // Cache for prepared chart data
+
+  // List of available chart types (can be expanded later)
+  final List<String> availableChartTypes = ['D-1', 'D-2', 'D-3', 'D-7', 'D-9', 'D-12', 'D-30']; // D-1 is Rashi
 
   Chart? get chart => _chart;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  // Getters for new state
+  int get numberOfCharts => _numberOfCharts;
+  List<String> get selectedChartTypes => _selectedChartTypes;
+
+  // Method to get chart data for a specific type (from cache or prepare)
+  Chart? getChartDataForType(String chartType) {
+    if (chartType == 'D-1') {
+      return _chart;
+    }
+    if (_chartDataCache.containsKey(chartType)) {
+      return _chartDataCache[chartType];
+    }
+    // Prepare if not in cache (only D-9 implemented for now)
+    if (chartType != 'D-1' && _chart != null) {
+      _chartDataCache[chartType] = _prepareVargaChartData(chartType, _chart!);
+      return _chartDataCache[chartType];
+    }
+    return null; // Not D-1 and cannot prepare
+  }
 
   Future<void> generateChart({
     required DateTime date,
@@ -24,9 +54,15 @@ class ChartProvider with ChangeNotifier {
   }) async {
     _isLoading = true;
     _error = null;
+    _chart = null; // Clear previous chart
+    _chartDataCache.clear(); // Clear varga cache
+    // Reset selections to default when generating a new chart
+    _numberOfCharts = 1;
+    _selectedChartTypes = ['D-1']; 
     notifyListeners();
 
     try {
+      // --- Backend API Call (Assume it returns D-1 and Varga sign data as before) ---
       final apiService = ApiService();
       final data = await apiService.getChart(
         year: date.year,
@@ -34,31 +70,133 @@ class ChartProvider with ChangeNotifier {
         day: date.day,
         hour: time.hour.toDouble(),
         minute: time.minute.toDouble(),
-        seconds: 0.0,
+        seconds: 0.0, // Assuming seconds are 0, adjust if needed
         latitude: latitude ?? 0.0,
         longitude: longitude ?? 0.0,
       );
       _chart = Chart.fromJson(data);
+      // Add main chart to cache as well for consistency
+      _chartDataCache['D-1'] = _chart; 
 
-      // Update KundaliProvider with the kundali details
-      final kundaliProvider = Provider.of<KundaliProvider>(navigatorKey.currentContext!, listen: false);
-      kundaliProvider.setKundaliDetails(data['kundali']);
+      // --- Update other providers (as before) ---
+       if (navigatorKey.currentContext != null) {
+         try {
+           final kundaliProvider = Provider.of<KundaliProvider>(navigatorKey.currentContext!, listen: false);
+           kundaliProvider.setKundaliDetails(data['kundali']);
 
-      // Update DashaProvider with the vimshottari dasha data
-      final dashaProvider = Provider.of<DashaProvider>(navigatorKey.currentContext!, listen: false);
-      dashaProvider.setDashaData(data);
+           final dashaProvider = Provider.of<DashaProvider>(navigatorKey.currentContext!, listen: false);
+           dashaProvider.setDashaData(data);
+         } catch (e) {
+           // Handle cases where providers might not be available (e.g., during hot restart)
+            _error = "Error accessing other providers: $e";
+            print(_error); // Log for debugging
+         }
+       } else {
+          _error = "Navigator context not available for provider updates.";
+          print(_error); // Log for debugging
+       }
+      // --- End Update other providers ---
+
     } catch (e) {
-      _error = e.toString();
+      _error = "Error fetching chart data: $e";
+       print(_error); // Log for debugging
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
+  // Method to change the number of charts displayed
+  void setNumberOfCharts(int count) {
+    if (count > 0 && count != _numberOfCharts) {
+      _numberOfCharts = count;
+      // Adjust the selected types list
+      if (_selectedChartTypes.length > count) {
+        _selectedChartTypes = _selectedChartTypes.sublist(0, count);
+      } else {
+        while (_selectedChartTypes.length < count) {
+          // Add default chart type (e.g., D-1 or next available)
+          _selectedChartTypes.add('D-1'); 
+        }
+      }
+      notifyListeners();
+    }
+  }
+
+  // Method to change the type of a specific chart panel
+  void setChartType(int index, String type) {
+    if (index >= 0 && index < _selectedChartTypes.length && availableChartTypes.contains(type)) {
+       if (_selectedChartTypes[index] != type) {
+         _selectedChartTypes[index] = type;
+         // No need to fetch new data here, getChartDataForType will handle preparation
+         notifyListeners();
+       }
+    }
+  }
+
+  // Temporary helper to prepare Varga data (D-9 only for now)
+  Chart? _prepareVargaChartData(String vargaType, Chart kundali) {
+    if (availableChartTypes.contains(vargaType)) {
+      try {
+        final Map<String, dynamic> VargaPlanetPositions = {};
+        final VargaData = kundali.data['vargas']?[vargaType] as Map<String, dynamic>?;
+        String VargaAscendantSign = VargaData?['Lagna']?['sign'] as String;
+        
+        if (VargaData == null) return null; // No D-9 data in response
+
+        kundali.planets.forEach((planetName, planetDetails) {
+          // Skip Lagna itself for planets list
+          // if (planetName.toLowerCase() == 'lagna') return; 
+
+          final planetVargaInfo = VargaData[planetName] as Map<String, dynamic>?;
+          if (planetVargaInfo != null) {
+            final VargaSign = planetVargaInfo['sign'] as String?;
+            if (VargaSign != null) {
+              // Calculate D-9 House based on D-9 Ascendant
+              // USE THE IMPORTED FUNCTION NOW
+              final VargaHouse = calculateHouse(VargaSign, VargaAscendantSign); 
+              
+              // Create a simplified structure for the painter
+              VargaPlanetPositions[planetName] = {
+                'sign': VargaSign,
+                'house': VargaHouse,
+              };
+            }
+          }
+        });
+
+        // Construct a map suitable for Chart.fromJson or direct use
+        // We need 'kundali' -> 'ascendant' -> 'sign' and 'kundali' -> 'planets'
+         final Map<String, dynamic> VargaChartData = {
+           'kundali': {
+             'ascendant': {'sign': VargaAscendantSign},
+             'planets': VargaPlanetPositions,
+             // Include other top-level keys if needed, otherwise keep minimal
+           },
+         };
+
+        return Chart.fromJson(VargaChartData);
+
+      } catch (e) {
+        print("Error preparing varga chart data: $e");
+        return null;
+      }
+    }
+    return null; // Only D-9 preparation supported for now
+  }
+
+
   void clearChart() {
     _chart = null;
     _error = null;
     _isLoading = false;
+    _numberOfCharts = 1; // Reset on clear
+    _selectedChartTypes = ['D-1']; // Reset on clear
+    _chartDataCache.clear();
     notifyListeners();
   }
-} 
+}
+
+// --- REMOVE Placeholder Utilities --- 
+// Removed calculateHouse function from here
+// Removed calculateNavamsaSign placeholder 

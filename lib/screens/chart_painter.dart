@@ -5,10 +5,6 @@ import '../utils/constants.dart';
 class NorthIndianChartPainter extends CustomPainter {
   final String ascendantSign;
   final Map<String, dynamic> planets;
-  final List<String> zodiacSigns = [
-    'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
-    'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
-  ];
 
   NorthIndianChartPainter({required this.ascendantSign, required this.planets});
 
@@ -73,87 +69,137 @@ class NorthIndianChartPainter extends CustomPainter {
       ..close();
     canvas.drawPath(secondaryDiagonal, paint);
     
-    // Define house paths (trapezoids/triangles)
+    // Define house paths (trapezoids/triangles) and their vertices
     final housePaths = <Path>[];
+    final houseVertices = <List<Offset>>[];
+
     // House 1: Top Diamond
+    List<Offset> h1Vertices = [
+      diamondVertices[0], // Top
+      innerIntersections[1], // Top-Right
+      center, // Center
+      innerIntersections[2], // Top-Left
+    ];
+    houseVertices.add(h1Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[0].dx, diamondVertices[0].dy)        // Top
-    ..lineTo(innerIntersections[1].dx, innerIntersections[1].dy)  // Top-Right
-    ..lineTo(center.dx, center.dy)                                // Center
-    ..lineTo(innerIntersections[2].dx, innerIntersections[2].dy)  // Top-Left
-    ..close());
+      ..addPolygon(h1Vertices, true)); // Use addPolygon for simplicity
+    
     // House 2: Top-Left Upper Triangle
+    List<Offset> h2Vertices = [
+      diamondVertices[0], // Top
+      innerIntersections[2], // Top-Left
+      outerVertices[3], // Top-Left Outer
+    ];
+    houseVertices.add(h2Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[0].dx, diamondVertices[0].dy)        // Top
-    ..lineTo(innerIntersections[2].dx, innerIntersections[2].dy)  // Top-Left
-    ..lineTo(outerVertices[3].dx, outerVertices[3].dy)            // Top-Left
-    ..close());
+      ..addPolygon(h2Vertices, true));
+      
     // House 3: Top-Left Lower Triangle
+     List<Offset> h3Vertices = [
+      outerVertices[3], // Top-Left Outer
+      diamondVertices[3], // Left
+      innerIntersections[2], // Top-Left Inner
+    ];
+    houseVertices.add(h3Vertices);
     housePaths.add(Path()
-    ..moveTo(outerVertices[3].dx, outerVertices[3].dy)            // Top-Left
-    ..lineTo(diamondVertices[3].dx, diamondVertices[3].dy)        // Left
-    ..lineTo(innerIntersections[2].dx, innerIntersections[2].dy)  // Top-Left
-    ..close());
+      ..addPolygon(h3Vertices, true));
+      
     // House 4: Left Diamond
+    List<Offset> h4Vertices = [
+      diamondVertices[3], // Left
+      innerIntersections[3], // Bottom-Left Inner
+      center, // Center
+      innerIntersections[2], // Top-Left Inner
+    ];
+    houseVertices.add(h4Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[3].dx, diamondVertices[3].dy)        // Left
-    ..lineTo(innerIntersections[2].dx, innerIntersections[2].dy)  // Bottom-Left
-    ..lineTo(center.dx, center.dy)                                // Center
-    ..lineTo(innerIntersections[3].dx, innerIntersections[3].dy)  // Top-Left
-    ..close());
+      ..addPolygon(h4Vertices, true));
+
     // House 5: Bottom-Left Upper Triangle
+    List<Offset> h5Vertices = [
+      diamondVertices[3], // Left
+      outerVertices[0], // Bottom-Left Outer
+      innerIntersections[3], // Bottom-Left Inner
+    ];
+    houseVertices.add(h5Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[3].dx, diamondVertices[3].dy)        // Left
-    ..lineTo(outerVertices[0].dx, outerVertices[0].dy)            // Bottom-Left
-    ..lineTo(innerIntersections[3].dx, innerIntersections[3].dy)  // Bottom-Left
-    ..close());
+      ..addPolygon(h5Vertices, true));
+      
     // House 6: Bottom-Left Lower Triangle
+    List<Offset> h6Vertices = [
+      outerVertices[0], // Bottom-Left Outer
+      diamondVertices[2], // Bottom
+      innerIntersections[3], // Bottom-Left Inner
+    ];
+    houseVertices.add(h6Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[2].dx, diamondVertices[2].dy)        // Bottom
-    ..lineTo(innerIntersections[3].dx, innerIntersections[3].dy)  // Bottom-Left
-    ..lineTo(outerVertices[0].dx, outerVertices[0].dy)            // Bottom-Left
-    ..close());
+      ..addPolygon(h6Vertices, true));
+
     // House 7: Bottom Diamond
+    List<Offset> h7Vertices = [
+      diamondVertices[2], // Bottom
+      innerIntersections[3], // Bottom-Left Inner
+      center, // Center
+      innerIntersections[0], // Bottom-Right Inner
+    ];
+    houseVertices.add(h7Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[2].dx, diamondVertices[2].dy)        // Bottom
-    ..lineTo(innerIntersections[0].dx, innerIntersections[0].dy)  // Bottom-Right
-    ..lineTo(center.dx, center.dy)                                // Center
-    ..lineTo(innerIntersections[3].dx, innerIntersections[3].dy)  // Bottom-Left
-    ..close());
+      ..addPolygon(h7Vertices, true));
+
     // House 8: Bottom-Right Lower Triangle
+     List<Offset> h8Vertices = [
+      diamondVertices[2], // Bottom
+      innerIntersections[0], // Bottom-Right Inner
+      outerVertices[1], // Bottom-Right Outer
+    ];
+    houseVertices.add(h8Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[2].dx, diamondVertices[2].dy)        // Bottom
-    ..lineTo(innerIntersections[0].dx, innerIntersections[0].dy)  // Bottom-Right
-    ..lineTo(outerVertices[1].dx, outerVertices[1].dy)            // Bottom-Right
-    ..close());
+      ..addPolygon(h8Vertices, true));
+      
     // House 9: Bottom-Right Upper Triangle
+    List<Offset> h9Vertices = [
+       outerVertices[1], // Bottom-Right Outer
+       diamondVertices[1], // Right
+       innerIntersections[0], // Bottom-Right Inner
+    ];
+    houseVertices.add(h9Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[1].dx, diamondVertices[1].dy)        // Right
-    ..lineTo(innerIntersections[0].dx, innerIntersections[0].dy)  // Bottom-Right
-    ..lineTo(outerVertices[1].dx, outerVertices[1].dy)            // Bottom-Right
-    ..close());
+      ..addPolygon(h9Vertices, true));
+
     // House 10: Right Diamond
+    List<Offset> h10Vertices = [
+      diamondVertices[1], // Right
+      innerIntersections[1], // Top-Right Inner
+      center, // Center
+      innerIntersections[0], // Bottom-Right Inner
+    ];
+    houseVertices.add(h10Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[1].dx, diamondVertices[1].dy)        // Right
-    ..lineTo(innerIntersections[0].dx, innerIntersections[0].dy)  // Top-Right
-    ..lineTo(center.dx, center.dy)                                // Center
-    ..lineTo(innerIntersections[1].dx, innerIntersections[1].dy)  // Bottom-Right
-    ..close());
-    // House 11:
+      ..addPolygon(h10Vertices, true));
+
+    // House 11: Top-Right Upper Triangle
+     List<Offset> h11Vertices = [
+      diamondVertices[1], // Right
+      innerIntersections[1], // Top-Right Inner
+      outerVertices[2], // Top-Right Outer
+    ];
+    houseVertices.add(h11Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[1].dx, diamondVertices[1].dy)        // Right
-    ..lineTo(innerIntersections[1].dx, innerIntersections[1].dy)  // Top-Right
-    ..lineTo(outerVertices[2].dx, outerVertices[2].dy)            // Top-Right
-    ..close());
-    // House 12:
+      ..addPolygon(h11Vertices, true));
+      
+    // House 12: Top-Right Lower Triangle
+     List<Offset> h12Vertices = [
+       outerVertices[2], // Top-Right Outer
+       diamondVertices[0], // Top
+       innerIntersections[1], // Top-Right Inner
+    ];
+    houseVertices.add(h12Vertices);
     housePaths.add(Path()
-    ..moveTo(diamondVertices[0].dx, diamondVertices[0].dy)        // Top
-    ..lineTo(innerIntersections[1].dx, innerIntersections[1].dy)  // Top-Right
-    ..lineTo(outerVertices[2].dx, outerVertices[2].dy)            // Top-Right
-    ..close());
+      ..addPolygon(h12Vertices, true));
+
 
     // Assign signs based on ascendant
-    final ascendantIndex = zodiacSigns.indexOf(ascendantSign);
+    final ascendantIndex = Constants.zodiacSigns.indexOf(ascendantSign);
     final signNumbers = List.generate(12, (i) => (ascendantIndex + i) % 12 + 1);
 
     // Group planets by house
@@ -170,47 +216,47 @@ class NorthIndianChartPainter extends CustomPainter {
 
     // Draw house numbers, sign numbers, and planets
     for (var house = 0; house < 12; house++) {
-      final housePath = housePaths[house];
-      final bounds = housePath.getBounds();
+      final bounds = housePaths[house].getBounds(); // Calculate bounds for house number placement
+      final vertices = houseVertices[house]; // Get vertices for this house
 
       // House number positions (based on notation style)
       Offset houseNumberPos;
       switch (house + 1) {
         case 1:
-          houseNumberPos = Offset(center.dx, center.dy - radius * 0.07);
+          houseNumberPos = Offset(center.dx, center.dy - radius * 0.08);
           break;
         case 2:
-          houseNumberPos = Offset(innerIntersections[2].dx, innerIntersections[2].dy - radius * 0.07);
+          houseNumberPos = Offset(innerIntersections[2].dx, innerIntersections[2].dy - radius * 0.08);
           break;
         case 3:
-          houseNumberPos = Offset(innerIntersections[2].dx - radius * 0.07, innerIntersections[2].dy);
+          houseNumberPos = Offset(innerIntersections[2].dx - radius * 0.08, innerIntersections[2].dy);
           break;
         case 4: // Left vertex
-          houseNumberPos = Offset(center.dx - radius * 0.07, center.dy);
+          houseNumberPos = Offset(center.dx - radius * 0.08, center.dy);
           break;
         case 5: // Near bottom-left corner, left side
-          houseNumberPos = Offset(innerIntersections[3].dx - radius * 0.07, innerIntersections[3].dy);
+          houseNumberPos = Offset(innerIntersections[3].dx - radius * 0.08, innerIntersections[3].dy);
           break;
         case 6: // Near bottom vertex, left side
-          houseNumberPos = Offset(innerIntersections[3].dx, innerIntersections[3].dy + radius * 0.07);
+          houseNumberPos = Offset(innerIntersections[3].dx, innerIntersections[3].dy + radius * 0.08);
           break;
         case 7: // Bottom vertex
-          houseNumberPos = Offset(center.dx, center.dy + radius * 0.07);
+          houseNumberPos = Offset(center.dx, center.dy + radius * 0.08);
           break;
         case 8: // Near bottom-right corner, bottom side
-          houseNumberPos = Offset(innerIntersections[0].dx, innerIntersections[0].dy + radius * 0.07);
+          houseNumberPos = Offset(innerIntersections[0].dx, innerIntersections[0].dy + radius * 0.08);
           break;
         case 9: // Near right vertex, bottom side
-          houseNumberPos = Offset(innerIntersections[0].dx + radius * 0.07, innerIntersections[0].dy);
+          houseNumberPos = Offset(innerIntersections[0].dx + radius * 0.08, innerIntersections[0].dy);
           break;
         case 10: // Right vertex
-          houseNumberPos = Offset(center.dx + radius * 0.07, center.dy);
+          houseNumberPos = Offset(center.dx + radius * 0.08, center.dy);
           break;
         case 11: // Near top-right corner, right side
-          houseNumberPos = Offset(innerIntersections[1].dx + radius * 0.07, innerIntersections[1].dy);
+          houseNumberPos = Offset(innerIntersections[1].dx + radius * 0.08, innerIntersections[1].dy);
           break;
         case 12: // Near top vertex, right side
-          houseNumberPos = Offset(innerIntersections[1].dx, innerIntersections[1].dy - radius * 0.07);
+          houseNumberPos = Offset(innerIntersections[1].dx, innerIntersections[1].dy - radius * 0.08);
           break;
         default:
           houseNumberPos = bounds.center;
@@ -218,11 +264,10 @@ class NorthIndianChartPainter extends CustomPainter {
 
       // Draw house number
       textPainter.text = TextSpan(
-        // text: '${house + 1}',
         text: '${signNumbers[house]}',
         style: TextStyle(
           color: Colors.black,
-          fontSize: size.width * 0.03,
+          fontSize: size.width * 0.035,
           fontWeight: FontWeight.bold,
         ),
       );
@@ -232,51 +277,11 @@ class NorthIndianChartPainter extends CustomPainter {
         houseNumberPos.translate(-textPainter.width / 2, -textPainter.height / 2),
       );
 
-      // Draw planets in this house
+      // Draw planets in this house using vertices for centroid calculation
       if (planetsByHouse[house].isNotEmpty) {
-        _drawPlanetsInHouse(canvas, bounds, planetsByHouse[house], house + 1);
+        // Pass both path and vertices now
+        _drawPlanetsInHouse(canvas, housePaths[house], houseVertices[house], planetsByHouse[house], house + 1);
       }
-    }
-  }
-
-  String _getPlanetAbbreviation(String planet) {
-    const abbreviations = {
-      'Sun': 'Su',
-      'Moon': 'Mo',
-      'Mars': 'Ma',
-      'Mercury': 'Me',
-      'Jupiter': 'Ju',
-      'Venus': 'Ve',
-      'Saturn': 'Sa',
-      'Rahu': 'Ra',
-      'Ketu': 'Ke',
-      'Lagna': 'La',
-    };
-    return abbreviations[planet] ?? planet[0];
-  }
-
-  Color _getPlanetColor(String planet) {
-    switch (planet.toLowerCase()) {
-      case 'sun':
-        return Colors.orange;
-      case 'moon':
-        return Colors.blue;
-      case 'mars':
-        return Colors.red;
-      case 'mercury':
-        return Colors.green;
-      case 'jupiter':
-        return Colors.purple;
-      case 'venus':
-        return Colors.pink;
-      case 'saturn':
-        return Colors.grey;
-      case 'rahu':
-        return Colors.brown;
-      case 'ketu':
-        return Colors.black;
-      default:
-        return Colors.black;
     }
   }
 
@@ -289,10 +294,6 @@ class NorthIndianChartPainter extends CustomPainter {
 class SouthIndianChartPainter extends CustomPainter {
   final String ascendantSign;
   final Map<String, dynamic> planets;
-  final List<String> zodiacSigns = [
-    'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
-    'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
-  ];
 
   SouthIndianChartPainter({required this.ascendantSign, required this.planets});
 
@@ -425,10 +426,10 @@ class SouthIndianChartPainter extends CustomPainter {
     ];
 
     // Calculate houses based on ascendant
-    final ascendantIndex = zodiacSigns.indexOf(ascendantSign);
+    final ascendantIndex = Constants.zodiacSigns.indexOf(ascendantSign);
     final houseMap = <String, int>{};
     for (var i = 0; i < 12; i++) {
-      houseMap[zodiacSigns[(ascendantIndex + i) % 12]] = i + 1;
+      houseMap[Constants.zodiacSigns[(ascendantIndex + i) % 12]] = i + 1;
     }
 
     // Draw signs and houses
@@ -476,119 +477,207 @@ class SouthIndianChartPainter extends CustomPainter {
   }
 }
 
-void _drawPlanetsInHouse(Canvas canvas, Rect bounds, List<String> planets, int house) {
-  if (planets.isEmpty) return;
+// Helper function to calculate bounds from vertices
+Rect _getBoundsFromVertices(List<Offset> vertices) {
+  if (vertices.isEmpty) return Rect.zero;
+  double minX = vertices[0].dx;
+  double minY = vertices[0].dy;
+  double maxX = vertices[0].dx;
+  double maxY = vertices[0].dy;
+  for (int i = 1; i < vertices.length; i++) {
+    minX = min(minX, vertices[i].dx);
+    minY = min(minY, vertices[i].dy);
+    maxX = max(maxX, vertices[i].dx);
+    maxY = max(maxY, vertices[i].dy);
+  }
+  return Rect.fromLTRB(minX, minY, maxX, maxY);
+}
+
+// --- Start: New Planet Drawing Logic --- 
+
+// Function signature changed: Added Path housePath
+void _drawPlanetsInHouse(Canvas canvas, Path housePath, List<Offset> vertices, List<String> planets, int house) {
+  if (planets.isEmpty || vertices.length < 3) return; 
 
   final textPainter = TextPainter(
     textDirection: TextDirection.ltr,
     textAlign: TextAlign.center,
   );
+  
+  final centroid = _calculateCentroid(vertices);
+  // Fallback if centroid calculation fails
+  final centerPoint = (centroid == Offset.zero && !_getBoundsFromVertices(vertices).isEmpty) 
+                      ? _getBoundsFromVertices(vertices).center 
+                      : centroid;
 
-  // Calculate available space (reduced to prevent overflow)
-  final availableWidth = bounds.width * 0.85;  // Use 70% of house width
-  final availableHeight = bounds.height * 0.85;  // Use 60% of house height
-  
-  // Calculate grid dimensions
-  final planetCount = planets.length;
-  int columns = (planetCount > 3) ? 2 : 1;  // Use 2 columns if more than 3 planets
-  int rows = (planetCount + columns - 1) ~/ columns;  // Ceiling division
-  
-  // Calculate maximum font size that will fit in a cell
-  double fontSize = min(
-    availableWidth / (columns * 3),  // Width constraint
-    availableHeight / (rows * 3)     // Height constraint
-  );
-  fontSize = min(fontSize, 14.0);    // Cap maximum size
-  
-  // Pre-calculate text dimensions for all planets
-  List<Size> textSizes = [];
-  double maxTextWidth = 0;
-  double maxTextHeight = 0;
-  
-  for (String planet in planets) {
+  Map<String, Offset> finalPositions = {};
+  double finalFontSize = 0.0;
+
+  // Loop through font sizes, largest to smallest
+  for (double currentFontSize = 18.0; currentFontSize >= 12.0; currentFontSize -= 1.0) {
+    bool success = true;
+    Map<String, Offset> currentPositions = {};
+    List<Rect> placedRects = [];
+
+    // Attempt to place all planets at this font size
+    for (String planet in planets) {
+      textPainter.text = TextSpan(
+        text: _getPlanetAbbreviation(planet),
+        style: TextStyle(
+          color: _getPlanetColor(planet),
+          fontSize: currentFontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      textPainter.layout();
+      final textSize = textPainter.size;
+
+      bool placed = false;
+      Offset currentTryPos = centerPoint; // Start near centroid
+      int attempts = 0;
+      int maxAttempts = 100; // Limit attempts to prevent infinite loops
+
+      while (attempts < maxAttempts) {
+        // Calculate potential bounding box centered around currentTryPos
+        // Adjust position slightly to center the text box
+        final tryRect = Rect.fromCenter(
+          center: currentTryPos, 
+          width: textSize.width,
+          height: textSize.height
+        );
+
+        // Check boundaries and collisions
+        if (_isRectInsidePath(tryRect, housePath) && !_rectIntersectsWithList(tryRect, placedRects)) {
+          // Success! Place the planet
+          placedRects.add(tryRect);
+          currentPositions[planet] = tryRect.topLeft; // Store top-left for drawing
+          placed = true;
+          break; // Exit adjustment loop, move to next planet
+        }
+
+        // Failure - Adjust position and try again
+        attempts++;
+        currentTryPos = _getNextTrialPosition(currentTryPos, centerPoint, attempts);
+      }
+
+      if (!placed) {
+        // Failed to place this planet at currentFontSize
+        success = false;
+        break; // Exit the planet loop for this font size
+      }
+    }
+
+    if (success) {
+      // Successfully placed all planets at this font size
+      finalFontSize = currentFontSize;
+      finalPositions = currentPositions;
+      break; // Exit the font size loop
+    }
+    // Otherwise, loop continues to try smaller font size
+  }
+
+  // If no font size worked, fallback (draw at minimum size, possibly overlapping)
+  if (finalFontSize < 8.0) {
+    finalFontSize = 8.0;
+    // Simple fallback: place all at centroid (will overlap)
+    planets.forEach((planet) { 
+        textPainter.text = TextSpan(
+          text: _getPlanetAbbreviation(planet),
+          style: TextStyle(color: _getPlanetColor(planet), fontSize: finalFontSize, fontWeight: FontWeight.bold),
+        );
+        textPainter.layout();
+        finalPositions[planet] = centerPoint.translate(-textPainter.width / 2, -textPainter.height/2);
+     });
+  }
+
+  // Draw all planets at their final positions and font size
+  finalPositions.forEach((planet, position) {
     textPainter.text = TextSpan(
       text: _getPlanetAbbreviation(planet),
       style: TextStyle(
         color: _getPlanetColor(planet),
-        fontSize: fontSize,
+        fontSize: finalFontSize,
         fontWeight: FontWeight.bold,
       ),
     );
     textPainter.layout();
-    textSizes.add(Size(textPainter.width, textPainter.height));
-    maxTextWidth = max(maxTextWidth, textPainter.width);
-    maxTextHeight = max(maxTextHeight, textPainter.height);
-  }
-  
-  // Calculate total grid size
-  final totalGridWidth = columns * (maxTextWidth * 1.5);  // 1.5x spacing between columns
-  final totalGridHeight = rows * (maxTextHeight * 1.5);   // 1.5x spacing between rows
-  
-  // Calculate starting position to center the entire grid
-  final startX = bounds.center.dx - (totalGridWidth / 2);
-  final startY = bounds.center.dy - (totalGridHeight / 2);
-  
-  // Adjust grid position based on house location
-  double adjustX = 0;
-  double adjustY = 0;
-  
-  switch (house) {
-    case 1: // Top
-      adjustY = -bounds.height * 0.1;
-      break;
-    case 4: // Left
-      adjustX = -bounds.width * 0.1;
-      break;
-    case 7: // Bottom
-      adjustY = bounds.height * 0.1;
-      break;
-    case 10: // Right
-      adjustX = bounds.width * 0.1;
-      break;
-    case 2:
-    case 3:
-      adjustX = -bounds.width * 0.05;
-      adjustY = -bounds.height * 0.05;
-      break;
-    case 5:
-    case 6:
-      adjustX = -bounds.width * 0.05;
-      adjustY = bounds.height * 0.05;
-      break;
-    case 8:
-    case 9:
-      adjustX = bounds.width * 0.05;
-      adjustY = bounds.height * 0.05;
-      break;
-    case 11:
-    case 12:
-      adjustX = -bounds.width * 0.05;
-      adjustY = -bounds.height * 0.05;
-      break;
-  }
-
-  // Draw each planet
-  for (int i = 0; i < planets.length; i++) {
-    final row = i ~/ columns;
-    final col = i % columns;
-    
-    textPainter.text = TextSpan(
-      text: _getPlanetAbbreviation(planets[i]),
-      style: TextStyle(
-        color: _getPlanetColor(planets[i]),
-        fontSize: fontSize,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-    textPainter.layout();
-
-    // Calculate centered position within the grid
-    final x = startX + (col * maxTextWidth * 1.5) + adjustX;
-    final y = startY + (row * maxTextHeight * 1.5) + adjustY;
-
-    textPainter.paint(canvas, Offset(x, y));
-  }
+    textPainter.paint(canvas, position);
+  });
 }
+
+// Helper to check if a Rect overlaps with any in a list
+bool _rectIntersectsWithList(Rect rect, List<Rect> others) {
+  for (final otherRect in others) {
+    if (rect.overlaps(otherRect)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Helper to check if all 4 corners of a Rect are inside a Path
+// NOTE: This is a basic check and might fail for complex paths/rects near edges.
+// A more robust check might involve Path.combine or other geometry libraries.
+bool _isRectInsidePath(Rect rect, Path path) {
+  return path.contains(rect.topLeft) &&
+         path.contains(rect.topRight) &&
+         path.contains(rect.bottomLeft) &&
+         path.contains(rect.bottomRight);
+}
+
+// Helper to find the next position to try (simple spiral out)
+Offset _getNextTrialPosition(Offset currentPos, Offset center, int attempt) {
+  // Simple spiral out logic (can be improved)
+  double angle = attempt * 0.5; // Radians
+  double radius = attempt * 1.2; // Increase radius with attempts
+  return Offset(
+    center.dx + cos(angle) * radius,
+    center.dy + sin(angle) * radius,
+  );
+}
+
+// Helper function to calculate the centroid of a Polygon given its vertices
+Offset _calculateCentroid(List<Offset> vertices) {
+  double signedArea = 0.0;
+  double cx = 0.0;
+  double cy = 0.0;
+  int n = vertices.length;
+
+  if (n < 3) return Offset.zero; // Cannot calculate centroid for lines or points
+
+  for (int i = 0; i < n; i++) {
+    final p1 = vertices[i];
+    final p2 = vertices[(i + 1) % n]; // Wrap around for the last segment
+
+    final double crossProduct = (p1.dx * p2.dy - p2.dx * p1.dy);
+    signedArea += crossProduct;
+    cx += (p1.dx + p2.dx) * crossProduct;
+    cy += (p1.dy + p2.dy) * crossProduct;
+  }
+
+  signedArea /= 2.0;
+
+  // Avoid division by zero for degenerate polygons (collinear points)
+  if (signedArea.abs() < 1e-6) { 
+      // Fallback: Average of vertices (not true centroid, but better than zero)
+       if (n > 0) {
+         double avgX = 0;
+         double avgY = 0;
+         for(var p in vertices) {
+           avgX += p.dx;
+           avgY += p.dy;
+         }
+         return Offset(avgX / n, avgY / n);
+       }
+       return Offset.zero; // Should not happen if n>=3
+  }
+
+  cx /= (6.0 * signedArea);
+  cy /= (6.0 * signedArea);
+
+  return Offset(cx, cy);
+}
+// --- End: New Planet Drawing Logic --- 
 
 String _getPlanetAbbreviation(String planet) {
   switch (planet.toLowerCase()) {
@@ -608,23 +697,23 @@ String _getPlanetAbbreviation(String planet) {
 Color _getPlanetColor(String planet) {
   switch (planet.toLowerCase()) {
     case 'sun':
-      return Colors.orange;
+      return Constants.planetColors['Sun']!;
     case 'moon':
-      return Colors.blue;
+      return Constants.planetColors['Moon']!;
     case 'mars':
-      return Colors.red;
+      return Constants.planetColors['Mars']!;
     case 'mercury':
-      return Colors.green;
+      return Constants.planetColors['Mercury']!;
     case 'jupiter':
-      return Colors.purple;
+      return Constants.planetColors['Jupiter']!;
     case 'venus':
-      return Colors.pink;
+      return Constants.planetColors['Venus']!;
     case 'saturn':
-      return Colors.grey;
+      return Constants.planetColors['Saturn']!;
     case 'rahu':
-      return Colors.brown;
+      return Constants.planetColors['Rahu']!;
     case 'ketu':
-      return Colors.black;
+      return Constants.planetColors['Ketu']!;
     default:
       return Colors.black;
   }
