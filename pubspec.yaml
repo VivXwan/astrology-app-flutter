@@ -21,6 +21,7 @@ dependencies:
   gpt_markdown: ^0.1.0
   pdf: ^3.10.4
   printing: ^5.11.0
+  uuid: ^4.4.0
 
 dev_dependencies:
   flutter_test:

@@ -134,55 +134,77 @@ class ChartProvider with ChangeNotifier {
     }
   }
 
-  // Temporary helper to prepare Varga data (D-9 only for now)
+  // Helper to prepare Varga data
   Chart? _prepareVargaChartData(String vargaType, Chart kundali) {
     if (availableChartTypes.contains(vargaType)) {
       try {
-        final Map<String, dynamic> VargaPlanetPositions = {};
-        final VargaData = kundali.data['vargas']?[vargaType] as Map<String, dynamic>?;
-        String VargaAscendantSign = VargaData?['Lagna']?['sign'] as String;
-        
-        if (VargaData == null) return null; // No D-9 data in response
+        final Map<String, dynamic> vargaPlanetPositions = {}; // Renamed for clarity
+        final vargaData = kundali.data['vargas']?[vargaType] as Map<String, dynamic>?;
+
+        // Get Varga Ascendant Sign - handle potential null
+        final String? vargaAscendantSign = vargaData?['Lagna']?['sign'] as String?;
+
+        // Need a valid ascendant to calculate houses
+        if (vargaData == null || vargaAscendantSign == null) {
+           print("Warning: Varga data or ascendant missing for $vargaType");
+           return null; // Cannot prepare chart without ascendant
+        }
 
         kundali.planets.forEach((planetName, planetDetails) {
-          // Skip Lagna itself for planets list
-          // if (planetName.toLowerCase() == 'lagna') return; 
+          // Get the original retrograde status from the D-1 data
+          final String? originalRetrograde = planetDetails['retrograde'] as String?;
 
-          final planetVargaInfo = VargaData[planetName] as Map<String, dynamic>?;
+          final planetVargaInfo = vargaData[planetName] as Map<String, dynamic>?;
           if (planetVargaInfo != null) {
-            final VargaSign = planetVargaInfo['sign'] as String?;
-            if (VargaSign != null) {
-              // Calculate D-9 House based on D-9 Ascendant
-              // USE THE IMPORTED FUNCTION NOW
-              final VargaHouse = calculateHouse(VargaSign, VargaAscendantSign); 
-              
-              // Create a simplified structure for the painter
-              VargaPlanetPositions[planetName] = {
-                'sign': VargaSign,
-                'house': VargaHouse,
+            final vargaSign = planetVargaInfo['sign'] as String?;
+            if (vargaSign != null) {
+              // Calculate Varga House based on Varga Ascendant
+              final vargaHouse = calculateHouse(vargaSign, vargaAscendantSign);
+
+              // Create the structure for the painter, NOW INCLUDING RETROGRADE
+              vargaPlanetPositions[planetName] = {
+                'sign': vargaSign,
+                'house': vargaHouse,
+                'retrograde': originalRetrograde ?? 'no', // Include retrograde status, default to 'no' if missing in D-1
+                // Add other fields like longitude_dms, nakshatra, pada if needed by painter/widgets for Varga
+                // For now, only adding retrograde as requested.
               };
             }
+          } else {
+             // Handle cases where a D-1 planet might not have Varga data (though unlikely for standard planets)
+             print("Warning: Varga sign info missing for $planetName in $vargaType");
           }
         });
 
         // Construct a map suitable for Chart.fromJson or direct use
-        // We need 'kundali' -> 'ascendant' -> 'sign' and 'kundali' -> 'planets'
-         final Map<String, dynamic> VargaChartData = {
+        final Map<String, dynamic> vargaChartData = {
            'kundali': {
-             'ascendant': {'sign': VargaAscendantSign},
-             'planets': VargaPlanetPositions,
-             // Include other top-level keys if needed, otherwise keep minimal
+             'ascendant': {'sign': vargaAscendantSign},
+             'planets': vargaPlanetPositions,
+             // Include other necessary top-level kundali keys if Chart.fromJson requires them
+             // Example: copy ayanamsa, tz_offset etc. if needed from original kundali
+             'ayanamsa': kundali.data['kundali']?['ayanamsa'],
+             'ayanamsa_type': kundali.data['kundali']?['ayanamsa_type'],
+             'tz_offset': kundali.data['kundali']?['tz_offset'],
            },
+           // Include other top-level keys if Chart.fromJson requires them (like vimshottari_dasha)
          };
 
-        return Chart.fromJson(VargaChartData);
+        // Use try-catch specifically for fromJson if it might fail
+        try {
+           return Chart.fromJson(vargaChartData);
+        } catch (e) {
+           print("Error creating Chart object from prepared Varga data for $vargaType: $e");
+           return null;
+        }
 
       } catch (e) {
-        print("Error preparing varga chart data: $e");
+        print("Error preparing varga chart data for $vargaType: $e");
         return null;
       }
     }
-    return null; // Only D-9 preparation supported for now
+    print("Varga type $vargaType not supported for preparation.");
+    return null;
   }
 
 
