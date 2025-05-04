@@ -29,15 +29,22 @@ class InputService {
     required double? latitude,
     required double? longitude,
     String? locationQuery,
+    BuildContext? context,
   }) async {
     try {
-      final chartProvider = Provider.of<ChartProvider>(context, listen: false);
+      // Use the context passed as parameter or fall back to this.context
+      final ctx = context ?? this.context;
+      final chartProvider = Provider.of<ChartProvider>(ctx, listen: false);
+      
+      // Using the chartProvider with the proper context will ensure it has
+      // access to the same ApiService instance that has the auth token set
       await chartProvider.generateChart(
         date: date,
         time: time,
         latitude: latitude,
         longitude: longitude,
         locationQuery: locationQuery,
+        context: ctx,
       );
     } catch (e) {
       throw Exception('Error generating chart: $e');

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/theme_switch.dart';
 
 /// A utility class for app-wide settings functionality.
@@ -29,6 +31,56 @@ class AppSettings {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // User Profile Section
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, child) {
+                    if (authProvider.isAuthenticated) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'User Profile',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: textColor,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundColor: theme.colorScheme.primary,
+                              child: Text(
+                                authProvider.user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                                style: TextStyle(color: theme.colorScheme.onPrimary),
+                              ),
+                            ),
+                            title: Text(
+                              authProvider.user?.name ?? 'User',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text(
+                              authProvider.user?.email ?? '',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            trailing: TextButton(
+                              onPressed: () {
+                                authProvider.logout();
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text('Logout'),
+                            ),
+                          ),
+                          const Divider(),
+                        ],
+                      );
+                    } else {
+                      return const SizedBox.shrink();
+                    }
+                  },
+                ),
+                
                 // Theme Settings Section
                 Text(
                   'Theme',

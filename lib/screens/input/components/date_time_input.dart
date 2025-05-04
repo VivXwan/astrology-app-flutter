@@ -27,6 +27,8 @@ class _DateTimeInputState extends State<DateTimeInput> {
   String _previousTimeValue = '';
   // Add 24-hour format toggle
   bool _use24HourFormat = false;
+  // Focus nodes for controlling focus
+  final FocusNode _timeFocusNode = FocusNode();
   
   @override
   void initState() {
@@ -37,6 +39,57 @@ class _DateTimeInputState extends State<DateTimeInput> {
     // Initialize date field
     if (widget.selectedDate != null) {
       _dateController.text = '${widget.selectedDate!.day}/${widget.selectedDate!.month}/${widget.selectedDate!.year}';
+    }
+    
+    // Set up focus change listener for time field
+    _timeFocusNode.addListener(_onTimeFocusChange);
+  }
+
+  // Handle focus changes on time field
+  void _onTimeFocusChange() {
+    // When the time field loses focus, format it properly with seconds
+    if (!_timeFocusNode.hasFocus) {
+      _formatTimeWithSeconds();
+    }
+  }
+  
+  // Format time with seconds when field loses focus
+  void _formatTimeWithSeconds() {
+    if (_timeController.text.isEmpty) return;
+    
+    if (_use24HourFormat) {
+      // For 24-hour format
+      final pattern = RegExp(r'^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$');
+      final match = pattern.firstMatch(_timeController.text);
+      if (match != null) {
+        final hours = match.group(1)!;
+        final minutes = match.group(2)!;
+        // If seconds are missing, add them
+        if (match.group(3) == null) {
+          setState(() {
+            _timeController.text = '$hours:$minutes:00';
+            _previousTimeValue = _timeController.text;
+          });
+        }
+        _validateAndUpdateTime24Hour(_timeController.text);
+      }
+    } else {
+      // For 12-hour format
+      final pattern = RegExp(r'^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s+(AM|PM)$');
+      final match = pattern.firstMatch(_timeController.text);
+      if (match != null) {
+        final hours = match.group(1)!;
+        final minutes = match.group(2)!;
+        final ampm = match.group(4)!;
+        // If seconds are missing, add them
+        if (match.group(3) == null) {
+          setState(() {
+            _timeController.text = '$hours:$minutes:00 $ampm';
+            _previousTimeValue = _timeController.text;
+          });
+        }
+        _validateAndUpdateTime(_timeController.text);
+      }
     }
   }
 
@@ -64,6 +117,8 @@ class _DateTimeInputState extends State<DateTimeInput> {
   void dispose() {
     _dateController.dispose();
     _timeController.dispose();
+    _timeFocusNode.removeListener(_onTimeFocusChange);
+    _timeFocusNode.dispose();
     super.dispose();
   }
 
@@ -115,13 +170,6 @@ class _DateTimeInputState extends State<DateTimeInput> {
       for (int i = 0; i < min(6, plainDigits.length); i++) {
         if (i == 2 || i == 4) formatted += ':';
         formatted += plainDigits[i];
-      }
-      
-      // If we have fewer than 6 digits but at least 4, add ":00" for seconds
-      if (plainDigits.length >= 4 && plainDigits.length < 6 && !isBackspace) {
-        if (formatted.split(':').length == 2) {
-          formatted += ':00';
-        }
       }
       
       // Calculate new cursor position
@@ -225,22 +273,15 @@ class _DateTimeInputState extends State<DateTimeInput> {
       formatted += plainDigits[i];
     }
     
-    // If we only have hours and minutes, add seconds
-    if (plainDigits.length >= 4 && plainDigits.length < 6 && !isBackspace) {
-      if (formatted.split(':').length == 2) {
-        formatted += ':00';
-      }
-    }
-    
     // Add AM/PM suffix with a space, but only if specifically indicated
     if (formatted.isNotEmpty) {
       if (hasAM) {
         formatted += ' AM';
       } else if (hasPM) {
         formatted += ' PM';
-      // Default to AM if we have 4+ digits and no AM/PM specified
-      } else if (plainDigits.length >= 4 && !formatted.contains(' AM') && !formatted.contains(' PM')) {
-        formatted += ' AM';
+      // // Default to AM if we have 4+ digits and no AM/PM specified
+      // } else if (plainDigits.length >= 4 && !formatted.contains(' AM') && !formatted.contains(' PM')) {
+      //   formatted += ' AM';
       }
     }
     
@@ -507,8 +548,9 @@ class _DateTimeInputState extends State<DateTimeInput> {
             SizedBox(height: 8),
             TextField(
               controller: _timeController,
+              focusNode: _timeFocusNode,
               decoration: InputDecoration(
-                hintText: _use24HourFormat ? 'HH:MM:SS' : 'HH:MM:SS AM/PM',
+                hintText: _use24HourFormat ? 'HH:MM' : 'HH:MM AM/PM',
                 border: OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(Icons.access_time),
@@ -517,6 +559,11 @@ class _DateTimeInputState extends State<DateTimeInput> {
               ),
               keyboardType: TextInputType.datetime,
               onChanged: _formatTimeInput,
+              onEditingComplete: () {
+                _formatTimeWithSeconds();
+                FocusScope.of(context).unfocus();
+              },
+              textInputAction: TextInputAction.done,
             ),
           ],
         ),

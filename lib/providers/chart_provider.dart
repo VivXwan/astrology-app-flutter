@@ -5,6 +5,7 @@ import '../models/varga_chart.dart';
 import '../services/api_service.dart';
 import 'kundali_provider.dart';
 import 'dasha_provider.dart';
+import '../providers/auth_provider.dart';
 import '../main.dart';
 import '../utils/astrology_utils.dart'; // Correct import now
 import '../utils/constants.dart'; // Need this for the prepareVargaChartData fallback
@@ -14,10 +15,18 @@ class ChartProvider with ChangeNotifier {
   Map<ChartType, VargaChart> _vargaCharts = {}; // Cache for prepared varga charts
   bool _isLoading = false;
   String? _error;
+  final ApiService _apiService;
+  
+  // Add list for user's saved charts
+  List<Chart> _userCharts = [];
+  bool _isLoadingUserCharts = false;
 
   // State for multiple charts
   int _numberOfCharts = 1;
   List<ChartType> _selectedChartTypes = [ChartType.d1]; // Default: Show only D-1
+
+  // Constructor to inject ApiService
+  ChartProvider(this._apiService);
 
   // List of available chart types
   List<ChartType> get availableChartTypes => ChartType.values;
@@ -28,6 +37,11 @@ class ChartProvider with ChangeNotifier {
   Chart? get chart => _chart;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  
+  // User charts accessors
+  List<Chart> get userCharts => _userCharts;
+  bool get isLoadingUserCharts => _isLoadingUserCharts;
+  bool get hasUserCharts => _userCharts.isNotEmpty;
 
   // Getters for state
   int get numberOfCharts => _numberOfCharts;
@@ -78,12 +92,89 @@ class ChartProvider with ChangeNotifier {
     }
   }
 
+  // Load a user's saved charts
+  Future<void> loadUserCharts(BuildContext context) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    // Only try to load if user is authenticated
+    if (!authProvider.isAuthenticated) {
+      _userCharts = [];
+      notifyListeners();
+      return;
+    }
+    
+    _isLoadingUserCharts = true;
+    _error = null;
+    notifyListeners();
+    
+    try {
+      final chartsData = await _apiService.getUserCharts();
+      
+      _userCharts = chartsData.map((data) => Chart.fromJson(data)).toList();
+      
+      // Sort by most recent first
+      _userCharts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+    } catch (e) {
+      _error = "Error loading your charts: $e";
+      print(_error);
+      _userCharts = [];
+    } finally {
+      _isLoadingUserCharts = false;
+      notifyListeners();
+    }
+  }
+  
+  // Load a specific chart by ID
+  Future<void> loadChartById(String chartId) async {
+    _isLoading = true;
+    _error = null;
+    _chart = null;
+    _vargaCharts.clear();
+    notifyListeners();
+    
+    try {
+      // Use the injected ApiService
+      final data = await _apiService.getChartById(chartId);
+      
+      // Parse the chart data
+      _chart = Chart.fromJson(data);
+      
+      // Update other providers
+      if (navigatorKey.currentContext != null) {
+        try {
+          final kundaliProvider = Provider.of<KundaliProvider>(
+            navigatorKey.currentContext!, 
+            listen: false
+          );
+          kundaliProvider.setKundaliDetails(data['kundali']);
+
+          final dashaProvider = Provider.of<DashaProvider>(
+            navigatorKey.currentContext!, 
+            listen: false
+          );
+          dashaProvider.setDashaData(data);
+        } catch (e) {
+          _error = "Error accessing other providers: $e";
+          print(_error);
+        }
+      }
+    } catch (e) {
+      _error = "Error loading chart: $e";
+      print(_error);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> generateChart({
     required DateTime date,
     required TimeOfDay time,
     required double? latitude,
     required double? longitude,
     String? locationQuery,
+    BuildContext? context,
   }) async {
     _isLoading = true;
     _error = null;
@@ -96,9 +187,8 @@ class ChartProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Backend API Call
-      final apiService = ApiService();
-      final data = await apiService.getChart(
+      // Use the injected ApiService instead of creating a new one
+      final data = await _apiService.getChart(
         year: date.year,
         month: date.month,
         day: date.day,
@@ -126,6 +216,14 @@ class ChartProvider with ChangeNotifier {
             listen: false
           );
           dashaProvider.setDashaData(data);
+          
+          // If the user is authenticated, refresh their charts
+          if (context != null) {
+            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+            if (authProvider.isAuthenticated) {
+              loadUserCharts(context);
+            }
+          }
         } catch (e) {
           // Handle cases where providers might not be available
           _error = "Error accessing other providers: $e";

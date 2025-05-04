@@ -39,14 +39,20 @@ enum ChartStyle {
 }
 
 class Chart {
+  final String id;
   final KundaliDetails kundali;
   final Map<String, dynamic> rawData;
   final Map<ChartType, Map<String, dynamic>>? vargaData;
+  final String? userId;
+  final DateTime createdAt;
 
   const Chart({
+    required this.id,
     required this.kundali,
     required this.rawData,
     this.vargaData,
+    this.userId,
+    required this.createdAt,
   });
 
   factory Chart.fromJson(Map<String, dynamic> json) {
@@ -64,12 +70,30 @@ class Chart {
       }
     }
 
+    // Parse created_at timestamp
+    final createdAtString = json['created_at'] as String?;
+    final createdAt = createdAtString != null 
+        ? DateTime.parse(createdAtString) 
+        : DateTime.now();
+
     return Chart(
+      id: json['id']?.toString() ?? '',
       kundali: kundali,
       rawData: json,
       vargaData: vargaData,
+      userId: json['user_id']?.toString(),
+      createdAt: createdAt,
     );
   }
+
+  // Check if the chart belongs to a particular user
+  bool belongsToUser(String? userIdToCheck) {
+    if (userId == null || userIdToCheck == null) return false;
+    return userId == userIdToCheck;
+  }
+
+  // Check if this is an anonymous chart (not associated with any user)
+  bool get isAnonymous => userId == null;
 
   String get ascendantSign => kundali.ascendant.sign;
   Map<String, PlanetDetails> get planets => kundali.planets;
@@ -84,14 +108,27 @@ class Chart {
     return vargaData != null && vargaData!.containsKey(type);
   }
 
+  // Format the creation date
+  String get formattedCreationDate {
+    return '${createdAt.day}/${createdAt.month}/${createdAt.year} ${createdAt.hour}:${createdAt.minute.toString().padLeft(2, '0')}';
+  }
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is Chart &&
+        other.id == id &&
         other.kundali == kundali &&
+        other.userId == userId &&
+        other.createdAt == createdAt &&
         mapEquals(other.vargaData, vargaData);
   }
 
   @override
-  int get hashCode => kundali.hashCode ^ (vargaData?.hashCode ?? 0);
+  int get hashCode => 
+      id.hashCode ^ 
+      kundali.hashCode ^ 
+      (userId?.hashCode ?? 0) ^ 
+      createdAt.hashCode ^
+      (vargaData?.hashCode ?? 0);
 }
