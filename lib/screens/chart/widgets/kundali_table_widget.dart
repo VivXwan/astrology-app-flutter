@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/chart_provider.dart';
+import '../../../models/kundali_details.dart';
 
 class KundaliTableWidget extends StatelessWidget {
   const KundaliTableWidget({super.key});
@@ -9,21 +10,25 @@ class KundaliTableWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ChartProvider>(
       builder: (context, provider, child) {
-        if (provider.chart == null) {
+        final chart = provider.getMainChart();
+        if (chart == null) {
           return const SizedBox.shrink();
         }
 
-        final kundali = provider.chart!.data['kundali'] as Map<String, dynamic>;
-        final birth_data = provider.chart!.data['birth_data'] as Map<String, dynamic>;
+        // Access the typed properties instead of dynamic maps
+        final kundaliDetails = chart.kundali;
+        
+        // Access birth data from the raw data (since it's not yet modeled)
+        final birthData = chart.rawData['birth_data'] as Map<String, dynamic>;
 
         return Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBasicInfoTable(birth_data),
+              _buildBasicInfoTable(birthData),
               const SizedBox(height: 16),
-              _buildPlanetaryPositionsTable(kundali),
+              _buildPlanetaryPositionsTable(kundaliDetails),
             ],
           ),
         );
@@ -31,13 +36,14 @@ class KundaliTableWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildBasicInfoTable(Map<String, dynamic> birth_data) {
-    final tz_multiplier = birth_data['tz_offset'] > 0 ? 1 : -1;
-    final tz_sign = birth_data['tz_offset'] > 0 ? '+' : '-';
-    final tz_dir = tz_multiplier == 1 ? 'East of GMT' : 'West of GMT';
-    final timezone_hour = (birth_data['tz_offset'] / 1).floor();
-    final timezone_minute = (birth_data['tz_offset'] % 1 * 60).floor();
-    final timezone = '$timezone_hour:$timezone_minute';
+  Widget _buildBasicInfoTable(Map<String, dynamic> birthData) {
+    final tzOffset = birthData['tz_offset'] as double;
+    final tzMultiplier = tzOffset > 0 ? 1 : -1;
+    final tzSign = tzOffset > 0 ? '+' : '-';
+    final tzDir = tzMultiplier == 1 ? 'East of GMT' : 'West of GMT';
+    final timezoneHour = (tzOffset.abs() / 1).floor();
+    final timezoneMinute = (tzOffset.abs() % 1 * 60).floor();
+    final timezone = '$timezoneHour:${timezoneMinute.toString().padLeft(2, '0')}';
     
     return Card(
       child: Padding(
@@ -59,10 +65,10 @@ class KundaliTableWidget extends StatelessWidget {
                 1: FlexColumnWidth(2),
               },
               children: [
-                _buildTableRow('Birth Date', '${birth_data['day']}-${birth_data['month']}-${birth_data['year']}'),
-                _buildTableRow('Birth Time', '${birth_data['hour'].toString().padLeft(2, '0')}:${birth_data['minute'].toString().padLeft(2, '0')}'),
-                _buildTableRow('Birth Place', 'Latitude: ${birth_data['latitude']}, Longitude: ${birth_data['longitude']}'),
-                _buildTableRow('Timezone', '$tz_sign$timezone ($tz_dir)')
+                _buildTableRow('Birth Date', '${birthData['day']}-${birthData['month']}-${birthData['year']}'),
+                _buildTableRow('Birth Time', '${birthData['hour'].toString().padLeft(2, '0')}:${birthData['minute'].toString().padLeft(2, '0')}'),
+                _buildTableRow('Birth Place', 'Latitude: ${birthData['latitude']}, Longitude: ${birthData['longitude']}'),
+                _buildTableRow('Timezone', '$tzSign$timezone ($tzDir)')
               ],
             ),
           ],
@@ -71,8 +77,9 @@ class KundaliTableWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildPlanetaryPositionsTable(Map<String, dynamic> kundali) {
-    final planets = kundali['planets'] as Map<String, dynamic>;
+  Widget _buildPlanetaryPositionsTable(KundaliDetails kundaliDetails) {
+    // Now we're using the typed PlanetDetails objects
+    final planets = kundaliDetails.planets;
 
     return Card(
       child: SingleChildScrollView(
@@ -98,18 +105,20 @@ class KundaliTableWidget extends StatelessWidget {
                   DataColumn(label: Text('House')),
                   DataColumn(label: Text('Nakshatra')),
                   DataColumn(label: Text('Pada')),
+                  DataColumn(label: Text('Retrograde')),
                 ],
                 rows: planets.entries.map((entry) {
                   final planet = entry.key;
-                  final details = entry.value as Map<String, dynamic>;
+                  final details = entry.value;
                   return DataRow(
                     cells: [
                       DataCell(Text(planet)),
-                      DataCell(Text(details['sign'] as String)),
-                      DataCell(Text(details['degrees_in_sign_dms'] as String)),
-                      DataCell(Text('${details['house']}')),
-                      DataCell(Text(details['nakshatra'] as String)),
-                      DataCell(Text('${details['pada']}')),
+                      DataCell(Text(details.sign)),
+                      DataCell(Text(details.degreesInSignDms)),
+                      DataCell(Text('${details.house}')),
+                      DataCell(Text(details.nakshatra)),
+                      DataCell(Text('${details.pada}')),
+                      DataCell(Text(details.isRetrograde ? 'Yes' : 'No')),
                     ],
                   );
                 }).toList(),

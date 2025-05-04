@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import '../../../models/location_model.dart';
 import '../../../services/api_service.dart';
@@ -29,21 +30,119 @@ class _LocationInputState extends State<LocationInput> {
   List<LocationModel> _searchResults = [];
   TextEditingController? _textEditingController;
   DateTime? _lastSelectionTime; // Timestamp of last selection instead of a boolean flag
+  
+  // Controllers for manual input fields
+  final TextEditingController _latitudeController = TextEditingController();
+  final TextEditingController _longitudeController = TextEditingController();
+
+  @override
+  void dispose() {
+    _latitudeController.dispose();
+    _longitudeController.dispose();
+    super.dispose();
+  }
+
+  // Helper to validate coordinates
+  bool _validateCoordinates() {
+    try {
+      final latitude = double.parse(_latitudeController.text);
+      final longitude = double.parse(_longitudeController.text);
+      
+      if (latitude < -90 || latitude > 90) {
+        widget.onError("Latitude must be between -90 and 90 degrees");
+        return false;
+      }
+      
+      if (longitude < -180 || longitude > 180) {
+        widget.onError("Longitude must be between -180 and 180 degrees");
+        return false;
+      }
+      
+      // Valid coordinates, pass them to parent
+      widget.onLocationSelected(latitude, longitude);
+      return true;
+    } catch (e) {
+      widget.onError("Please enter valid numbers for coordinates");
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Manual Input:'),
-            Switch(
-              value: widget.useManualInput,
-              onChanged: widget.onToggleManualInput,
+            Text('Location', style: TextStyle(fontSize: 16)),
+            Row(
+              children: [
+                Text('Manual Input'),
+                Switch(
+                  value: widget.useManualInput,
+                  onChanged: (value) {
+                    // Clear any error messages when switching modes
+                    widget.onError('');
+                    widget.onToggleManualInput(value);
+                  },
+                ),
+              ],
             ),
           ],
         ),
-        if (!widget.useManualInput)
+        const SizedBox(height: 12),
+        if (widget.useManualInput)
+          // Manual coordinate input fields
+          Column(
+            children: [
+              TextField(
+                controller: _latitudeController,
+                decoration: InputDecoration(
+                  labelText: 'Latitude (-90 to 90)',
+                  border: OutlineInputBorder(),
+                  hintText: 'e.g. 37.7749',
+                ),
+                keyboardType: TextInputType.numberWithOptions(decimal: true, signed: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*$')),
+                ],
+                onChanged: (_) {
+                  // Try to validate when both fields have values
+                  if (_latitudeController.text.isNotEmpty && 
+                      _longitudeController.text.isNotEmpty) {
+                    _validateCoordinates();
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _longitudeController,
+                decoration: InputDecoration(
+                  labelText: 'Longitude (-180 to 180)',
+                  border: OutlineInputBorder(),
+                  hintText: 'e.g. -122.4194',
+                ),
+                keyboardType: TextInputType.numberWithOptions(decimal: true, signed: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*$')),
+                ],
+                onChanged: (_) {
+                  // Try to validate when both fields have values
+                  if (_latitudeController.text.isNotEmpty && 
+                      _longitudeController.text.isNotEmpty) {
+                    _validateCoordinates();
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Enter the exact coordinates of the birth location.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          )
+        else
+          // Location search functionality
           TypeAheadField<LocationModel>(
             builder: (context, controller, focusNode) {
               _textEditingController = controller;
@@ -138,10 +237,5 @@ class _LocationInputState extends State<LocationInput> {
           ),
       ],
     );
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

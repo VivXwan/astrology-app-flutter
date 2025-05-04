@@ -7,6 +7,8 @@ import 'providers/chart_provider.dart';
 import 'screens/input/services/input_service.dart';
 import 'providers/kundali_provider.dart';
 import 'providers/dasha_provider.dart';
+import 'providers/theme_provider.dart';
+import 'config/app_themes.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -18,6 +20,7 @@ void main() {
         ChangeNotifierProvider<ChartProvider>(create: (_) => ChartProvider()),
         ChangeNotifierProvider(create: (_) => KundaliProvider()),
         ChangeNotifierProvider(create: (_) => DashaProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         Provider<InputService>(
           create: (context) => InputService(context),
         ),
@@ -32,22 +35,17 @@ class VedicAstrologyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get the ThemeProvider
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Vedic Astrology',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(fontSize: 16),
-          bodyMedium: TextStyle(fontSize: 14),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        ),
+      // Use theme provider to determine current theme
+      themeMode: themeProvider.themeMode,
+      // Apply our configured themes
+      theme: AppThemes.lightTheme,
+      darkTheme: AppThemes.darkTheme,
       home: const InputScreen(),
       routes: {
         '/input': (context) => const InputScreen(),

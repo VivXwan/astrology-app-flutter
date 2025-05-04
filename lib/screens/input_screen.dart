@@ -3,6 +3,7 @@ import 'input/components/date_time_input.dart';
 import 'input/components/location_input.dart';
 import 'input/services/input_service.dart';
 import 'chart_screen.dart';
+import '../widgets/app_settings.dart';
 
 class InputScreen extends StatefulWidget {
   const InputScreen({super.key});
@@ -123,6 +124,10 @@ class _InputScreenState extends State<InputScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Enter Birth Details'),
+        actions: [
+          // Replace ThemeSwitch with AppSettings button
+          AppSettings.settingsButton(context),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

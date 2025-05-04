@@ -6,7 +6,12 @@ import '../models/chart.dart';
 import 'chart/widgets/chart_widget.dart';
 import 'chart/widgets/kundali_table_widget.dart';
 import 'chart/widgets/dasha_timeline_widget.dart';
+import '../widgets/theme_switch.dart';
+import '../widgets/app_settings.dart';
+import '../config/theme_extensions.dart';
+import 'chart_painters/base_chart_painter.dart';
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 // New Widget for Tab Content
 class ChartTabContent extends StatefulWidget {
@@ -18,10 +23,11 @@ class ChartTabContent extends StatefulWidget {
 
 class _ChartTabContentState extends State<ChartTabContent> with AutomaticKeepAliveClientMixin {
   // Local state for this tab's view configuration
-  List<String> _selectedChartTypes = ['D-1'];
-  // *** ADD State for styles ***
-  List<String> _selectedChartStyles = ['North Indian']; 
-  final List<String> _availableChartStyles = ['North Indian', 'South Indian'];
+  List<ChartType> _selectedChartTypes = [ChartType.d1];
+  // Chart styles
+  List<ChartStyle> _selectedChartStyles = [ChartStyle.northIndian]; 
+  // Map to track hover state for each cell
+  final Map<int, bool> _hoverStates = {};
 
   // Style constants
   static const double _dropdownHeight = 35.0;
@@ -30,57 +36,72 @@ class _ChartTabContentState extends State<ChartTabContent> with AutomaticKeepAli
   @override
   bool get wantKeepAlive => true; // Keep state when switching tabs
 
-  void _setChartType(int index, String type) {
-     // Access available types from provider (could be passed down or read here)
+  void _setChartType(int index, ChartType type) {
+    // Access available types from provider
     final availableTypes = context.read<ChartProvider>().availableChartTypes;
     if (index >= 0 && index < _selectedChartTypes.length && availableTypes.contains(type)) {
-       if (_selectedChartTypes[index] != type) {
-          setState(() {
-             _selectedChartTypes[index] = type;
-          });
-       }
+      if (_selectedChartTypes[index] != type) {
+        setState(() {
+          _selectedChartTypes[index] = type;
+        });
+      }
     }
   }
 
-  // *** ADD Method to set style ***
-  void _setChartStyle(int index, String style) {
-     if (index >= 0 && index < _selectedChartStyles.length && _availableChartStyles.contains(style)) {
-       if (_selectedChartStyles[index] != style) {
-          setState(() {
-             _selectedChartStyles[index] = style;
-          });
-       }
+  void _setChartStyle(int index, ChartStyle style) {
+    final availableStyles = context.read<ChartProvider>().availableChartStyles;
+    if (index >= 0 && index < _selectedChartStyles.length && availableStyles.contains(style)) {
+      if (_selectedChartStyles[index] != style) {
+        setState(() {
+          _selectedChartStyles[index] = style;
+        });
+      }
     }
   }
 
- // *** ADD Helper for Type Dropdown ***
-  Widget _buildTypeDropdown(int index, String selectedType, double availableWidth) {
+  // Helper to update hover state
+  void _setHoverState(int index, bool isHovered) {
+    if (_hoverStates[index] != isHovered) {
+      setState(() {
+        _hoverStates[index] = isHovered;
+      });
+    }
+  }
+
+  // Helper to toggle hover state on tap
+  void _toggleHoverState(int index) {
+    final currentState = _hoverStates[index] ?? false;
+    setState(() {
+      _hoverStates[index] = !currentState;
+    });
+  }
+
+  // Helper to check if device is touch-only (no hover support)
+  bool get _isTouchOnlyDevice {
+    // For mobile devices, we can use MediaQuery, but for simplicity 
+    // we'll use a Web detection approach since hover mainly matters on desktop/web
+    return !kIsWeb && (Theme.of(context).platform == TargetPlatform.iOS || 
+                        Theme.of(context).platform == TargetPlatform.android);
+  }
+
+  // Helper for Type Dropdown
+  Widget _buildTypeDropdown(int index, ChartType selectedType, double availableWidth, ChartTheme chartTheme) {
     final chartProvider = context.read<ChartProvider>();
     return SizedBox(
       height: _dropdownHeight,
       width: availableWidth, // Take the width provided by the caller
-      child: DropdownButton<String>(
+      child: DropdownButton<ChartType>(
         value: selectedType,
         isExpanded: true,
-        underline: Container(height: 1, color: Colors.grey),
-        style: const TextStyle(fontSize: 13, color: Colors.black),
-        items: chartProvider.availableChartTypes.map((String type) {
-          String displayText = switch (type) {
-            'D-1' => 'Rashi (D-1)',
-            'D-2' => 'Hora (D-2)',
-            'D-3' => 'Drekkana (D-3)',
-            'D-7' => 'Saptamsa (D-7)',
-            'D-9' => 'Navamsa (D-9)',
-            'D-12' => 'Dwadasamsa (D-12)',
-            'D-30' => 'Trimshamsa (D-30)',
-            _ => type
-          };
-          return DropdownMenuItem<String>(
+        underline: Container(height: 1, color: chartTheme.chartBorderColor),
+        style: TextStyle(fontSize: 13, color: chartTheme.textColor),
+        items: chartProvider.availableChartTypes.map((ChartType type) {
+          return DropdownMenuItem<ChartType>(
             value: type,
-            child: Text(displayText, overflow: TextOverflow.ellipsis),
+            child: Text(type.toString(), overflow: TextOverflow.ellipsis),
           );
         }).toList(),
-        onChanged: (String? newValue) {
+        onChanged: (ChartType? newValue) {
           if (newValue != null) {
             _setChartType(index, newValue);
           }
@@ -89,94 +110,124 @@ class _ChartTabContentState extends State<ChartTabContent> with AutomaticKeepAli
     );
   }
 
-  // *** ADD Helper for Style Dropdown ***
-  Widget _buildStyleDropdown(int index, String selectedStyle, double availableWidth) {
-      return SizedBox(
-        height: _dropdownHeight,
-        width: availableWidth, // Take the width provided by the caller
-        child: DropdownButton<String>(
-          value: selectedStyle,
-          isExpanded: true,
-          underline: Container(height: 1, color: Colors.grey),
-          style: const TextStyle(fontSize: 13, color: Colors.black),
-          items: _availableChartStyles.map((String style) {
-            return DropdownMenuItem<String>(
-              value: style,
-              child: Text(style, overflow: TextOverflow.ellipsis),
-            );
-          }).toList(),
-          onChanged: (String? newValue) {
-              if (newValue != null) {
-              _setChartStyle(index, newValue);
-            }
-          },
-        ),
-      );
+  // Helper for Style Dropdown
+  Widget _buildStyleDropdown(int index, ChartStyle selectedStyle, double availableWidth, ChartTheme chartTheme,) {
+    final chartProvider = context.read<ChartProvider>();
+    return SizedBox(
+      height: _dropdownHeight,
+      width: availableWidth, // Take the width provided by the caller
+      child: DropdownButton<ChartStyle>(
+        value: selectedStyle,
+        isExpanded: true,
+        underline: Container(height: 1, color: chartTheme.chartBorderColor),
+        style: TextStyle(fontSize: 13, color: chartTheme.textColor),
+        items: chartProvider.availableChartStyles.map((ChartStyle style) {
+          return DropdownMenuItem<ChartStyle>(
+            value: style,
+            child: Text(style.toString(), overflow: TextOverflow.ellipsis),
+          );
+        }).toList(),
+        onChanged: (ChartStyle? newValue) {
+          if (newValue != null) {
+            _setChartStyle(index, newValue);
+          }
+        },
+      ),
+    );
   }
 
   // Helper to calculate effective selector height based on available width
   double _calculateSelectorHeight(double availableWidth) {
-      const double horizontalPadding = 4.0;
-      final double requiredRowWidth = (_minDropdownWidth * 2) + horizontalPadding;
-      final bool canFitRow = availableWidth >= requiredRowWidth;
-      if (canFitRow) {
-          return _dropdownHeight + 8; // Row layout height + padding
-      } else {
-          return (_dropdownHeight * 2) + 4 + 8; // Column layout height + spacing + padding
-      }
+    const double horizontalPadding = 4.0;
+    final double requiredRowWidth = (_minDropdownWidth * 2) + horizontalPadding;
+    final bool canFitRow = availableWidth >= requiredRowWidth;
+    if (canFitRow) {
+      return _dropdownHeight + 8; // Row layout height + padding
+    } else {
+      return (_dropdownHeight * 2) + 4 + 8; // Column layout height + spacing + padding
+    }
   }
 
-  // Helper to build adaptive selectors (used in TALL layout primarily now)
-  // Retained for potential use if cell width calculation needs it later, but might simplify
-  Widget _buildAdaptiveSelectorsRow(int index, String selectedType, String selectedStyle, double availableWidth) {
+  // Helper to build adaptive selectors
+  Widget _buildAdaptiveSelectorsRow(int index, ChartType selectedType, ChartStyle selectedStyle, double availableWidth, ChartTheme chartTheme) {
     const double horizontalPadding = 4.0; 
     final double requiredRowWidth = (_minDropdownWidth * 2) + horizontalPadding;
     final bool canFitRow = availableWidth >= requiredRowWidth;
 
-    if (canFitRow) {
-      // Use Row if width is sufficient
-      return SizedBox(
-        height: _dropdownHeight + 8, 
-        child: Row(
-          children: [
-            Expanded(
-              child: _buildTypeDropdown(index, selectedType, double.infinity), 
+    // Get hover state with fallback
+    final bool isHovered = _hoverStates[index] ?? false;
+    final bool shouldShowSelectors = isHovered;
+
+    // Wrap with AnimatedOpacity for smooth fade effect
+    return AnimatedOpacity(
+      opacity: shouldShowSelectors ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: canFitRow 
+          ? SizedBox(
+              height: _dropdownHeight + 8, 
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildTypeDropdown(index, selectedType, double.infinity, chartTheme), 
+                  ),
+                  const SizedBox(width: horizontalPadding),
+                  Expanded(
+                     child: _buildStyleDropdown(index, selectedStyle, double.infinity, chartTheme), 
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min, 
+              children: [
+                 _buildTypeDropdown(index, selectedType, availableWidth, chartTheme),
+                 const SizedBox(height: 4), 
+                 _buildStyleDropdown(index, selectedStyle, availableWidth, chartTheme),
+              ],
             ),
-            const SizedBox(width: horizontalPadding),
-            Expanded(
-               child: _buildStyleDropdown(index, selectedStyle, double.infinity), 
+    );
+  }
+
+  // Helper to build chart type label
+  Widget _buildChartTypeLabel(ChartType chartType, double width, ChartTheme chartTheme, bool isVisible) {
+    return AnimatedOpacity(
+      opacity: isVisible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: SizedBox(
+        height: _dropdownHeight,
+        width: width,
+        child: Center(
+          child: Text(
+            chartType.toString(),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: chartTheme.textColor,
             ),
-          ],
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-      );
-    } else {
-      // Use Column if width is insufficient
-      return Column(
-        mainAxisSize: MainAxisSize.min, 
-        children: [
-           _buildTypeDropdown(index, selectedType, availableWidth),
-           const SizedBox(height: 4), 
-           _buildStyleDropdown(index, selectedStyle, availableWidth),
-        ],
-      );
-    }
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final chartProvider = context.watch<ChartProvider>();
+    // Get the chart theme from the current theme
+    final chartTheme = Theme.of(context).extension<ChartTheme>() ?? ChartTheme.light;
 
     // Check necessary conditions from provider before building UI
-     if (chartProvider.error != null) {
-       return Center(child: Text('Error: ${chartProvider.error}'));
-     }
-     if (chartProvider.isLoading && chartProvider.chart == null) {
-       return const Center(child: CircularProgressIndicator());
-     }
-     if (chartProvider.chart == null) {
-       return const Center(child: Text('Generate a chart first.'));
-     }
+    if (chartProvider.error != null) {
+      return Center(child: Text('Error: ${chartProvider.error}'));
+    }
+    if (chartProvider.isLoading && chartProvider.getMainChart() == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (chartProvider.getMainChart() == null) {
+      return const Center(child: Text('Generate a chart first.'));
+    }
 
     return Padding(
       padding: const EdgeInsets.all(0), // Remove padding here, apply within Card if needed
@@ -194,7 +245,7 @@ class _ChartTabContentState extends State<ChartTabContent> with AutomaticKeepAli
           
           int crossAxisCount = 1;
           if (availableWidth >= (targetChartEdge * 2 + spacing + cellPadding * 4)) { // Can fit two wide?
-               crossAxisCount = 2;
+            crossAxisCount = 2;
           }
           
           // Estimate cell width to determine selector height needed
@@ -203,33 +254,33 @@ class _ChartTabContentState extends State<ChartTabContent> with AutomaticKeepAli
 
           int mainAxisCount = 1;
           if (availableHeight >= ((targetChartEdge + H_sel_eff + cellPadding * 2) * 2 + spacing)) { // Can fit two high?
-              mainAxisCount = 2;
+            mainAxisCount = 2;
           }
           
           final int numberOfChartsToDisplay = crossAxisCount * mainAxisCount;
 
           // --- State Update Scheduling (Handles both type and style lists) ---
-          if (numberOfChartsToDisplay != _selectedChartTypes.length || numberOfChartsToDisplay != _selectedChartStyles.length ) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() {
-                    final currentLen = _selectedChartTypes.length;
-                    if (numberOfChartsToDisplay > currentLen) {
-                      final chartProvider = context.read<ChartProvider>();
-                      List<String> availableTypes = chartProvider.availableChartTypes;
-                      for (int i = currentLen; i < numberOfChartsToDisplay; i++) {
-                        int typeIndex = (i % availableTypes.length);
-                        _selectedChartTypes.add(availableTypes[typeIndex]);
-                        _selectedChartStyles.add('North Indian'); 
-                      }
-                    } else {
-                      _selectedChartTypes = _selectedChartTypes.sublist(0, numberOfChartsToDisplay);
-                      _selectedChartStyles = _selectedChartStyles.sublist(0, numberOfChartsToDisplay);
+          if (numberOfChartsToDisplay != _selectedChartTypes.length || numberOfChartsToDisplay != _selectedChartStyles.length) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  final currentLen = _selectedChartTypes.length;
+                  if (numberOfChartsToDisplay > currentLen) {
+                    final chartProvider = context.read<ChartProvider>();
+                    List<ChartType> availableTypes = chartProvider.availableChartTypes;
+                    for (int i = currentLen; i < numberOfChartsToDisplay; i++) {
+                      int typeIndex = (i % availableTypes.length);
+                      _selectedChartTypes.add(availableTypes[typeIndex]);
+                      _selectedChartStyles.add(ChartStyle.northIndian); 
                     }
-                  });
-                }
-              });
-            }
+                  } else {
+                    _selectedChartTypes = _selectedChartTypes.sublist(0, numberOfChartsToDisplay);
+                    _selectedChartStyles = _selectedChartStyles.sublist(0, numberOfChartsToDisplay);
+                  }
+                });
+              }
+            });
+          }
           // --- End State Update --- 
           
           // --- Calculate Actual Sizes based on Constraints --- 
@@ -254,10 +305,9 @@ class _ChartTabContentState extends State<ChartTabContent> with AutomaticKeepAli
 
           // --- Build GridView --- 
           if (_selectedChartTypes.length != numberOfChartsToDisplay || _selectedChartStyles.length != numberOfChartsToDisplay) {
-             return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           }
           
-          // *** CHANGE: Align the SizedBox containing the GridView instead of Center ***
           return Center(
             child: SizedBox(
               width: totalGridWidth,
@@ -273,44 +323,75 @@ class _ChartTabContentState extends State<ChartTabContent> with AutomaticKeepAli
                 itemCount: numberOfChartsToDisplay, 
                 itemBuilder: (context, index) {
                   // Retrieve state for this index
-                  String selectedType = _selectedChartTypes[index];
-                  String selectedStyle = _selectedChartStyles[index];
-                  Chart? chartData = chartProvider.getChartDataForType(selectedType);
+                  ChartType selectedType = _selectedChartTypes[index];
+                  ChartStyle selectedStyle = _selectedChartStyles[index];
                   
-                  // Build Selectors - Use the adaptive helper
-                  Widget selectorsWidget = _buildAdaptiveSelectorsRow(index, selectedType, selectedStyle, requiredCellWidth - cellPadding * 2);
-    
-                  // Build Chart Widget 
-                  Widget chartWidget = Expanded(
-                      child: chartData != null
-                          ? ChartWidget(
-                              key: ValueKey('$selectedType-$selectedStyle-$index'), 
-                              chart: chartData,
-                              selectedStyle: selectedStyle,
-                             )
-                          : const Center(child: Text('N/A')),
-                     );
-    
-                  // Assemble final layout within Card - ALWAYS a Column
-                  return Card(
-                    elevation: 2,
-                    margin: EdgeInsets.zero,
-                    clipBehavior: Clip.antiAlias, 
-                    child: Padding(
-                      padding: EdgeInsets.all(cellPadding),
-                      child: Column( 
-                          children: [
-                            selectorsWidget, 
-                            chartWidget, // Expanded chart takes remaining space
-                          ],
+                  // Get appropriate chart data based on type
+                  dynamic chartData = chartProvider.getChartDataForDisplay(selectedType);
+                  
+                  // Calculate available cell space
+                  double selectorSpace = H_sel_eff;
+                  double chartSpace = requiredCellHeight - selectorSpace - cellPadding * 2;
+
+                  // Check if selectors are visible
+                  final bool isHovered = _hoverStates[index] ?? false;
+
+                  return GestureDetector(
+                    onTap: () => _toggleHoverState(index),
+                    child: MouseRegion(
+                      onEnter: (_) => _setHoverState(index, true),
+                      onExit: (_) => _setHoverState(index, false),
+                      child: Card(
+                        margin: EdgeInsets.zero, // No margin, handled by grid
+                        child: Padding(
+                          padding: EdgeInsets.all(cellPadding),
+                          child: Column(
+                            children: [
+                              // Stack with chart type label and selectors
+                              Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Chart type label - visible when selectors are not
+                                  _buildChartTypeLabel(
+                                    selectedType,
+                                    requiredCellWidth - cellPadding * 2,
+                                    chartTheme,
+                                    !isHovered,
+                                  ),
+                                  
+                                  // Type Selector - visible on hover/tap
+                                  _buildAdaptiveSelectorsRow(
+                                    index, 
+                                    selectedType, 
+                                    selectedStyle, 
+                                    requiredCellWidth - cellPadding * 2,
+                                    chartTheme,
+                                  ),
+                                ],
+                              ),
+                              
+                              // Chart Display
+                              Expanded(
+                                child: chartData != null
+                                  ? ChartWidget(
+                                      chartData: chartData,
+                                      chartStyle: selectedStyle,
+                                    )
+                                  : const Center(
+                                      child: Text('No data available for this chart type'),
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
+                      ),
                     ),
                   );
                 },
               ),
             ),
           );
-        }
+        },
       ),
     );
   }
@@ -337,7 +418,7 @@ class _ChartScreenState extends State<ChartScreen> with TickerProviderStateMixin
   @override
   bool get wantKeepAlive => true;
 
-   @override
+  @override
   void initState() {
     super.initState();
     _updateTabController(); // Initial setup
@@ -443,6 +524,162 @@ class _ChartScreenState extends State<ChartScreen> with TickerProviderStateMixin
     );
   }
 
+  // --- Helper method to build a horizontal tab bar ---
+  Widget _buildHorizontalTabBar() {
+    // Get theme colors
+    final theme = Theme.of(context);
+    final textColor = theme.textTheme.bodyLarge?.color ?? theme.colorScheme.onSurface;
+    
+    return Container(
+      height: kToolbarHeight * 0.8,
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: theme.dividerColor, width: 0.5))
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              labelColor: textColor,
+              unselectedLabelColor: textColor.withOpacity(0.7),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12.0),
+              indicatorPadding: const EdgeInsets.only(bottom: 2.0),
+              tabs: List.generate(_tabKeys.length, (index) {
+                return Tab(
+                  height: kToolbarHeight * 0.8 - 4,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Tab ${index + 1}'),
+                      const SizedBox(width: 4),
+                      if (_tabKeys.length > 1)
+                        InkWell(
+                          onTap: () => _removeTab(index),
+                          customBorder: const CircleBorder(),
+                          child: Icon(Icons.close, size: 14, color: textColor),
+                        )
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.add, color: textColor),
+            tooltip: 'Add New Tab',
+            onPressed: _addTab,
+            splashRadius: 18,
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Helper method to build a vertical tab bar ---
+  Widget _buildVerticalTabBar() {
+    // Get theme colors
+    final theme = Theme.of(context);
+    final textColor = theme.textTheme.bodyLarge?.color ?? theme.colorScheme.onSurface;
+    
+    return Container(
+      width: 60, // Reduced width for vertical tab bar
+      decoration: BoxDecoration(
+        border: Border(right: BorderSide(color: theme.dividerColor, width: 0.5))
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: _tabKeys.length,
+              padding: EdgeInsets.zero,
+              itemBuilder: (context, index) {
+                bool isSelected = _tabController?.index == index;
+                return Column(
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        if (_tabController != null) {
+                          _tabController!.animateTo(index);
+                        }
+                      },
+                      child: Container(
+                        height: 56,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: theme.dividerColor,
+                              width: 0.5,
+                            ),
+                            left: BorderSide(
+                              color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
+                          color: isSelected ? theme.colorScheme.primary.withOpacity(0.1) : null,
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Tab number
+                            Text(
+                              '${index + 1}',
+                              style: TextStyle(
+                                color: isSelected ? theme.colorScheme.primary : textColor,
+                                fontSize: 16,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            
+                            // Close button (if more than one tab)
+                            if (_tabKeys.length > 1)
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: InkWell(
+                                  onTap: () => _removeTab(index),
+                                  customBorder: const CircleBorder(),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 12,
+                                    color: textColor.withOpacity(0.7),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          // Add tab button
+          InkWell(
+            onTap: _addTab,
+            child: Container(
+              height: 46,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: theme.dividerColor, width: 0.5),
+                ),
+              ),
+              child: Icon(
+                Icons.add,
+                color: textColor,
+                size: 22,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -457,106 +694,68 @@ class _ChartScreenState extends State<ChartScreen> with TickerProviderStateMixin
 
     // Build the main content based on provider state
     return Consumer<ChartProvider>(
-       builder: (context, provider, child) {
-          // Handle overall error/loading BEFORE Scaffold assembly
-         if (provider.error != null && provider.chart == null) {
-           return Scaffold(
-             appBar: AppBar(title: const Text('Error')),
-             body: Center(child: Text('Error generating chart: ${provider.error}')),
-           );
-         }
-         if (provider.isLoading && provider.chart == null) {
-            return Scaffold(
-              appBar: AppBar(title: const Text('Vedic Astrology')),
-              body: const Center(child: CircularProgressIndicator()),
-            );
-         }
+      builder: (context, provider, child) {
+        // Handle overall error/loading BEFORE Scaffold assembly
+        if (provider.error != null && provider.getMainChart() == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Error')),
+            body: Center(child: Text('Error generating chart: ${provider.error}')),
+          );
+        }
+        if (provider.isLoading && provider.getMainChart() == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Vedic Astrology')),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
 
-        // --- Determine Layout based on Screen Size (Keep this the same) ---
+        // --- Determine Layout based on Screen Size ---
         final Size screenSize = MediaQuery.of(context).size;
         final bool isDesktopLayout = screenSize.width > screenSize.height; 
 
         // --- Assemble Body Content --- 
         Widget bodyContent;
         if (isDesktopLayout) {
-          // Desktop: Row layout - *** ADJUST FLEX ***
+          // Desktop: Row layout with vertical tabs on left
           bodyContent = Row(
             children: [
-              Expanded( // Left side for tabs
-                flex: 2, // Increased flex for charts 
+              _buildVerticalTabBar(),
+              Expanded(
+                flex: 2,
                 child: _buildTabSection(), 
               ),
               const VerticalDivider(width: 1, thickness: 1),
-              Expanded( // Right side for info
-                flex: 3, // Decreased flex for info
+              Expanded(
+                flex: 3,
                 child: _buildInfoSection(),
               ),
             ],
           );
         } else {
-          // Phone: Column layout (original structure) - *** ADJUST FLEX ***
+          // Phone: Column layout with horizontal tabs at bottom
           bodyContent = Column(
-             children: [
-               Expanded(
-                 flex: 3, // Increased flex for tabs
-                 child: _buildTabSection(),
-               ),
-               Expanded(
-                 flex: 3, // Kept info flex the same or decrease slightly if needed
-                 child: _buildInfoSection(),
-               ),
-             ]
+            children: [
+              Expanded(
+                flex: 3,
+                child: _buildTabSection(),
+              ),
+              Expanded(
+                flex: 3,
+                child: _buildInfoSection(),
+              ),
+              _buildHorizontalTabBar(),
+            ]
           );
         }
 
-        // --- Build Scaffold (Keep AppBar/Bottom structure the same) ---
+        // --- Build Scaffold ---
         return Scaffold(
           appBar: AppBar(
             title: const Text('Chart Analysis'),
-             actions: const [], 
-            bottom: PreferredSize( 
-              preferredSize: Size.fromHeight(kToolbarHeight * 0.8), 
-              child: Container(
-                height: kToolbarHeight * 0.8, 
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TabBar(
-                        controller: _tabController,
-                        isScrollable: true, 
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 12.0),
-                        indicatorPadding: const EdgeInsets.only(bottom: 2.0),
-                        tabs: List.generate(_tabKeys.length, (index) {
-                          return Tab(
-                            height: kToolbarHeight * 0.8 - 4, 
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min, 
-                              children: [
-                                Text('Tab ${index + 1}'),
-                                const SizedBox(width: 4),
-                                if (_tabKeys.length > 1)
-                                  InkWell( 
-                                    onTap: () => _removeTab(index),
-                                    customBorder: const CircleBorder(),
-                                    child: const Icon(Icons.close, size: 14),
-                                  )
-                              ],
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      tooltip: 'Add New Tab',
-                      onPressed: _addTab,
-                      splashRadius: 18, 
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0), 
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            actions: [
+              // Using the reusable settings button
+              AppSettings.settingsButton(context),
+            ],
           ),
           body: bodyContent, 
         );

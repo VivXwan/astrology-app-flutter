@@ -7,6 +7,7 @@ class PlanetDetails {
   final String degreesInSignDms;
   final String nakshatra;
   final int pada;
+  final bool isRetrograde;
 
   PlanetDetails({
     required this.longitude,
@@ -17,9 +18,13 @@ class PlanetDetails {
     required this.degreesInSignDms,
     required this.nakshatra,
     required this.pada,
+    this.isRetrograde = false,
   });
 
   factory PlanetDetails.fromJson(Map<String, dynamic> json) {
+    final retrogradeValue = json['retrograde'];
+    final bool isRetrograde = retrogradeValue == 'yes' || retrogradeValue == true;
+    
     return PlanetDetails(
       longitude: json['longitude'] as double,
       longitudeDms: json['longitude_dms'] as String,
@@ -29,8 +34,46 @@ class PlanetDetails {
       degreesInSignDms: json['degrees_in_sign_dms'] as String,
       nakshatra: json['nakshatra'] as String,
       pada: json['pada'] as int,
+      isRetrograde: isRetrograde,
     );
   }
+
+  PlanetDetails copyWith({
+    double? longitude,
+    String? longitudeDms,
+    String? sign,
+    int? house,
+    double? degreesInSign,
+    String? degreesInSignDms,
+    String? nakshatra,
+    int? pada,
+    bool? isRetrograde,
+  }) {
+    return PlanetDetails(
+      longitude: longitude ?? this.longitude,
+      longitudeDms: longitudeDms ?? this.longitudeDms,
+      sign: sign ?? this.sign,
+      house: house ?? this.house,
+      degreesInSign: degreesInSign ?? this.degreesInSign,
+      degreesInSignDms: degreesInSignDms ?? this.degreesInSignDms,
+      nakshatra: nakshatra ?? this.nakshatra,
+      pada: pada ?? this.pada,
+      isRetrograde: isRetrograde ?? this.isRetrograde,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is PlanetDetails &&
+        other.longitude == longitude &&
+        other.sign == sign &&
+        other.house == house &&
+        other.isRetrograde == isRetrograde;
+  }
+
+  @override
+  int get hashCode => longitude.hashCode ^ sign.hashCode ^ house.hashCode ^ isRetrograde.hashCode;
 }
 
 class AscendantDetails {
@@ -73,7 +116,6 @@ class KundaliDetails {
   });
 
   factory KundaliDetails.fromJson(Map<String, dynamic> json) {
-    // Convert planets map
     final planetsJson = json['planets'] as Map<String, dynamic>;
     final planets = planetsJson.map((key, value) => 
       MapEntry(key, PlanetDetails.fromJson(value as Map<String, dynamic>))

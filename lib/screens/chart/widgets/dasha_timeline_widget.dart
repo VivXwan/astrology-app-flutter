@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/dasha_model.dart';
 import '../../../providers/dasha_provider.dart';
+import '../../../config/theme_extensions.dart';
 import 'package:intl/intl.dart';
 
 // Enum to represent the Dasha level
@@ -13,8 +14,10 @@ class DashaTimelineWidget extends StatelessWidget {
   // Helper to build the content of a Dasha tile
   Widget _buildDashaTileContent(BuildContext context, DashaPeriod dasha, DashaLevel level) {
     final dateFormat = DateFormat('dd-MM-yyyy');
+    // Get theme
+    final dashaTheme = Theme.of(context).extension<DashaTheme>() ?? DashaTheme.light;
     // Pass the level to get the appropriate color
-    final planetColor = _getPlanetColor(dasha.planet, level);
+    final planetColor = _getPlanetColor(context, dasha.planet, level);
 
     // Calculate duration
     final Duration duration = dasha.endDate.difference(dasha.startDate);
@@ -59,7 +62,10 @@ class DashaTimelineWidget extends StatelessWidget {
         Expanded(
           child: Text(
             '${dateFormat.format(dasha.startDate)} - ${dateFormat.format(dasha.endDate)}',
-            style: TextStyle(fontSize: 12, color: Colors.black54.withOpacity(0.8)), // Slightly less prominent date
+            style: TextStyle(
+              fontSize: 12, 
+              color: dashaTheme.textColor.withOpacity(0.8)
+            ), // Use theme color with opacity
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
           ),
@@ -67,7 +73,11 @@ class DashaTimelineWidget extends StatelessWidget {
         const SizedBox(width: 16),
         Text(
           formattedDuration,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black.withOpacity(0.9)),
+          style: TextStyle(
+            fontSize: 12, 
+            fontWeight: FontWeight.w500, 
+            color: dashaTheme.textColor.withOpacity(0.9)
+          ), // Use theme color with opacity
         ),
       ],
     );
@@ -75,6 +85,9 @@ class DashaTimelineWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get theme
+    final dashaTheme = Theme.of(context).extension<DashaTheme>() ?? DashaTheme.light;
+    
     return Consumer<DashaProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading) {
@@ -92,11 +105,15 @@ class DashaTimelineWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min, // Use min size
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16.0, 0, 16.0, 8.0), // Add padding below title
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 8.0), // Add padding below title
               child: Text(
                 'Vimshottari Dasha',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 20, 
+                  fontWeight: FontWeight.bold,
+                  color: dashaTheme.textColor,
+                ),
               ),
             ),
             // Use ListView for scrollability if many Maha Dashas
@@ -109,6 +126,8 @@ class DashaTimelineWidget extends StatelessWidget {
                 return ExpansionTile(
                   key: PageStorageKey('maha_${mahaDasha.planet}_${mahaDasha.startDate}'),
                   tilePadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+                  collapsedIconColor: dashaTheme.mahaDashaBorderColor,
+                  iconColor: dashaTheme.mahaDashaBorderColor,
                   // Pass MahaDasha level
                   title: _buildDashaTileContent(context, mahaDasha, DashaLevel.maha),
                   children: (mahaDasha.antardashas ?? []).map((antarDasha) {
@@ -117,6 +136,8 @@ class DashaTimelineWidget extends StatelessWidget {
                     return ExpansionTile(
                        key: PageStorageKey('antar_${antarDasha.planet}_${antarDasha.startDate}'),
                        tilePadding: const EdgeInsets.only(left: 32.0, right: 16.0, top: 4.0, bottom: 4.0), // Indent Antar
+                       collapsedIconColor: dashaTheme.antarDashaBorderColor,
+                       iconColor: dashaTheme.antarDashaBorderColor,
                        // Pass AntarDasha level
                        title: _buildDashaTileContent(context, antarDasha, DashaLevel.antar),
                        // Only allow expansion if there are pratyantars
@@ -145,37 +166,25 @@ class DashaTimelineWidget extends StatelessWidget {
     );
   }
 
-  // Modified color helper to accept DashaLevel
-  Color _getPlanetColor(String planet, DashaLevel level) {
-    // Base color can be defined elsewhere if needed, e.g., from Constants
-    Color baseColor;
-    switch (planet.toLowerCase()) {
-      case 'sun': baseColor = Colors.orange[800]!; break;
-      case 'moon': baseColor = Colors.grey[400]!; break;
-      case 'mars': baseColor = Colors.red[700]!; break;
-      case 'mercury': baseColor = Colors.green[600]!; break;
-      case 'jupiter': baseColor = Colors.yellow[700]!; break;
-      case 'venus': baseColor = Colors.pink[300]!; break;
-      case 'saturn': baseColor = Colors.blueGrey[700]!; break;
-      case 'rahu': baseColor = Colors.indigo[700]!; break;
-      case 'ketu': baseColor = Colors.purple[700]!; break;
-      default: baseColor = Colors.black;
-    }
-
+  // Modified color helper to accept DashaLevel and use theme
+  Color _getPlanetColor(BuildContext context, String planet, DashaLevel level) {
+    // Get theme
+    final dashaTheme = Theme.of(context).extension<DashaTheme>() ?? DashaTheme.light;
+    final chartTheme = Theme.of(context).extension<ChartTheme>() ?? ChartTheme.light;
+    
+    // Try to get color from chart theme's planet colors first
+    Color planetBaseColor = chartTheme.planetColors[planet.toLowerCase()] ?? 
+                           chartTheme.planetColors[planet] ?? 
+                           dashaTheme.textColor;
+    
     // Adjust color based on Dasha level
     switch (level) {
       case DashaLevel.maha:
-        // Use a slightly darker/more saturated version or the base color itself
-        // return baseColor; // Or HSLColor.fromColor(baseColor).withLightness(0.4).toColor();
-        return Colors.black;
+        return dashaTheme.mahaDashaBorderColor;
       case DashaLevel.antar:
-        // Use a slightly lighter version
-        // return HSLColor.fromColor(baseColor).withLightness(0.6).toColor();
-        return const Color(0xFF7E4B39);
+        return dashaTheme.antarDashaBorderColor;
       case DashaLevel.pratyantar:
-        // Use the lightest version
-        // return HSLColor.fromColor(baseColor).withLightness(0.75).toColor();
-        return const Color(0xFFB46C00);
+        return dashaTheme.pratDashaBorderColor;
     }
   }
 }

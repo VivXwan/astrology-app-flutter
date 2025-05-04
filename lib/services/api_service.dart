@@ -89,7 +89,7 @@ class ApiService {
     required int day,
     required double hour,
     required double minute,
-    required double seconds,
+    double seconds=0,
     required double latitude,
     required double longitude,
   }) async {
