@@ -2,6 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 
+// Helper function to parse and simplify auth error messages for login
+String _parseLoginErrorMessage(String? rawErrorMessage) {
+  if (rawErrorMessage == null) return 'An unknown error occurred.';
+  if (rawErrorMessage.contains('DioExceptionType.connectionError') || rawErrorMessage.contains('SocketException')) {
+    return 'Could not connect to the server. Please check your internet connection.';
+  }
+  if (rawErrorMessage.contains('401') || 
+      rawErrorMessage.toLowerCase().contains('incorrect credentials') || 
+      rawErrorMessage.toLowerCase().contains('invalid username or password')) {
+    return 'Login failed: Incorrect email or password.';
+  }
+  if (rawErrorMessage.contains('422')) {
+     // Should ideally not happen for login if email format is validated client-side
+    return 'Invalid data provided for login. Please check your email format.';
+  }
+  if (rawErrorMessage.contains('DioException')) {
+      return 'A server communication error occurred. Please try again later.';
+  }
+  return 'An unexpected error occurred during login. Please try again.';
+}
+
 class LoginForm extends StatefulWidget {
   final VoidCallback onToggleForm;
   
@@ -19,6 +40,7 @@ class _LoginFormState extends State<LoginForm> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
   
   @override
   void dispose() {
@@ -35,22 +57,29 @@ class _LoginFormState extends State<LoginForm> {
   
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
-      final success = await authProvider.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+      final success = await authProvider.signIn(
+        _emailController.text.trim(),
+        _passwordController.text,
       );
-      
+
       if (success && mounted) {
-        // Login successful - we don't need to do anything as the UI will update via Consumer
+        Navigator.of(context).pop();
+      } else if (!success && mounted) {
+        setState(() => _isLoading = false);
+        if (authProvider.errorMessage == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login failed. Please check your credentials and try again.')),
+          );
+        }
       }
     }
   }
   
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+    final authProvider = context.watch<AuthProvider>();
     
     return Form(
       key: _formKey,
@@ -110,19 +139,22 @@ class _LoginFormState extends State<LoginForm> {
             onFieldSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 8),
-          if (authProvider.error != null)
-            Text(
-              authProvider.error!,
-              style: const TextStyle(color: Colors.red),
-              textAlign: TextAlign.center,
+          if (authProvider.errorMessage != null && !authProvider.isLoading)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10.0),
+              child: Text(
+                _parseLoginErrorMessage(authProvider.errorMessage),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                textAlign: TextAlign.center,
+              ),
             ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: authProvider.isLoading ? null : _submit,
+            onPressed: _isLoading ? null : _submit,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
-            child: authProvider.isLoading
+            child: _isLoading
                 ? const SizedBox(
                     height: 20,
                     width: 20,
@@ -135,7 +167,7 @@ class _LoginFormState extends State<LoginForm> {
           ),
           const SizedBox(height: 16),
           TextButton(
-            onPressed: authProvider.isLoading ? null : widget.onToggleForm,
+            onPressed: _isLoading ? null : widget.onToggleForm,
             child: const Text('Don\'t have an account? Register'),
           ),
         ],

@@ -9,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../main.dart';
 import '../utils/astrology_utils.dart'; // Correct import now
 import '../utils/constants.dart'; // Need this for the prepareVargaChartData fallback
+import '../models/chart_models.dart'; // Import ChartSummary
 
 class ChartProvider with ChangeNotifier {
   Chart? _chart; // Stores the main chart (D-1)
@@ -17,8 +18,8 @@ class ChartProvider with ChangeNotifier {
   String? _error;
   final ApiService _apiService;
   
-  // Add list for user's saved charts
-  List<Chart> _userCharts = [];
+  // Changed _userCharts to List<ChartSummary>
+  List<ChartSummary> _userCharts = [];
   bool _isLoadingUserCharts = false;
 
   // State for multiple charts
@@ -38,8 +39,8 @@ class ChartProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   
-  // User charts accessors
-  List<Chart> get userCharts => _userCharts;
+  // Changed getter to return List<ChartSummary>
+  List<ChartSummary> get userCharts => _userCharts;
   bool get isLoadingUserCharts => _isLoadingUserCharts;
   bool get hasUserCharts => _userCharts.isNotEmpty;
 
@@ -108,12 +109,12 @@ class ChartProvider with ChangeNotifier {
     notifyListeners();
     
     try {
-      final chartsData = await _apiService.getUserCharts();
+      final chartsData = await _apiService.getAuthenticatedUserCharts();
       
-      _userCharts = chartsData.map((data) => Chart.fromJson(data)).toList();
+      _userCharts = chartsData;
       
       // Sort by most recent first
-      _userCharts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      _userCharts.sort((a, b) => DateTime.parse(b.createdAt).compareTo(DateTime.parse(a.createdAt)));
       
     } catch (e) {
       _error = "Error loading your charts: $e";
@@ -126,41 +127,43 @@ class ChartProvider with ChangeNotifier {
   }
   
   // Load a specific chart by ID
-  Future<void> loadChartById(String chartId) async {
+  Future<void> loadChartById(String chartIdStr) async {
     _isLoading = true;
     _error = null;
     _chart = null;
     _vargaCharts.clear();
     notifyListeners();
-    
     try {
-      // Use the injected ApiService
-      final data = await _apiService.getChartById(chartId);
+      final int chartId = int.parse(chartIdStr); 
+      final ChartSummary chartSummaryData = await _apiService.getChartById(chartId); 
       
-      // Parse the chart data
-      _chart = Chart.fromJson(data);
-      
-      // Update other providers
-      if (navigatorKey.currentContext != null) {
-        try {
-          final kundaliProvider = Provider.of<KundaliProvider>(
-            navigatorKey.currentContext!, 
-            listen: false
-          );
-          kundaliProvider.setKundaliDetails(data['kundali']);
+      if (chartSummaryData.result != null) {
+        final Map<String, dynamic> chartResultData = chartSummaryData.result!;
+        _chart = Chart.fromJson(chartResultData); 
 
-          final dashaProvider = Provider.of<DashaProvider>(
-            navigatorKey.currentContext!, 
-            listen: false
-          );
-          dashaProvider.setDashaData(data);
-        } catch (e) {
-          _error = "Error accessing other providers: $e";
-          print(_error);
+        // Safely access context and providers
+        final currentContext = navigatorKey.currentContext;
+        if (currentContext != null && currentContext.mounted) {
+          try {
+            final kundaliProvider = Provider.of<KundaliProvider>(currentContext, listen: false);
+            final kundaliData = chartResultData['kundali'];
+            if (kundaliData != null) {
+               kundaliProvider.setKundaliDetails(kundaliData as Map<String, dynamic>);
+            }
+
+            final dashaProvider = Provider.of<DashaProvider>(currentContext, listen: false);
+            dashaProvider.setDashaData(chartResultData); 
+          } catch (providerError) {
+             _error = "Error updating child providers: $providerError";
+            print(_error);
+          }
         }
+      } else {
+        _error = "Chart result data not found.";
+        print(_error);
       }
     } catch (e) {
-      _error = "Error loading chart: $e";
+      _error = "Error loading chart by ID: $e";
       print(_error);
     } finally {
       _isLoading = false;
@@ -174,69 +177,59 @@ class ChartProvider with ChangeNotifier {
     required double? latitude,
     required double? longitude,
     String? locationQuery,
-    BuildContext? context,
+    BuildContext? context, // This context is different from navigatorKey.currentContext
   }) async {
     _isLoading = true;
     _error = null;
-    _chart = null; // Clear previous chart
-    _vargaCharts.clear(); // Clear varga cache
-    
-    // Reset selections to default when generating a new chart
+    _chart = null; 
+    _vargaCharts.clear(); 
     _numberOfCharts = 1;
     _selectedChartTypes = [ChartType.d1]; 
     notifyListeners();
-
     try {
-      // Use the injected ApiService instead of creating a new one
-      final data = await _apiService.getChart(
+      final Map<String, dynamic> generatedChartData = await _apiService.getChart(
         year: date.year,
         month: date.month,
         day: date.day,
         hour: time.hour.toDouble(),
         minute: time.minute.toDouble(),
-        seconds: 0.0, // Assuming seconds are 0, adjust if needed
+        seconds: 0.0, 
         latitude: latitude ?? 0.0,
         longitude: longitude ?? 0.0,
       );
-      
-      // Parse the chart data using our new structured models
-      _chart = Chart.fromJson(data);
+      _chart = Chart.fromJson(generatedChartData); 
 
-      // Update other providers
-      if (navigatorKey.currentContext != null) {
-        try {
-          final kundaliProvider = Provider.of<KundaliProvider>(
-            navigatorKey.currentContext!, 
-            listen: false
-          );
-          kundaliProvider.setKundaliDetails(data['kundali']);
-
-          final dashaProvider = Provider.of<DashaProvider>(
-            navigatorKey.currentContext!, 
-            listen: false
-          );
-          dashaProvider.setDashaData(data);
-          
-          // If the user is authenticated, refresh their charts
-          if (context != null) {
-            final authProvider = Provider.of<AuthProvider>(context, listen: false);
-            if (authProvider.isAuthenticated) {
-              loadUserCharts(context);
+      final currentNavContext = navigatorKey.currentContext;
+      if (currentNavContext != null && currentNavContext.mounted) {
+         try {
+            final kundaliProvider = Provider.of<KundaliProvider>(currentNavContext, listen: false);
+            final kundaliData = generatedChartData['kundali'];
+            if (kundaliData != null ){
+               kundaliProvider.setKundaliDetails(kundaliData as Map<String, dynamic>);
             }
-          }
-        } catch (e) {
-          // Handle cases where providers might not be available
-          _error = "Error accessing other providers: $e";
-          print(_error); // Log for debugging
+
+            final dashaProvider = Provider.of<DashaProvider>(currentNavContext, listen: false);
+            dashaProvider.setDashaData(generatedChartData); 
+          
+            // Use the passed 'context' for authProvider, not navigatorKey.currentContext
+            if (context != null) {
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              if (authProvider.isAuthenticated) {
+                // Pass the same context to loadUserCharts if it needs one for Provider.of
+                loadUserCharts(context); 
+              }
+            }
+        } catch (providerError) {
+          _error = "Error accessing other providers during generateChart: $providerError";
+          print(_error); 
         }
       } else {
-        _error = "Navigator context not available for provider updates.";
-        print(_error); // Log for debugging
+        _error = "Navigator context not available for provider updates during generateChart.";
+        print(_error); 
       }
-
     } catch (e) {
       _error = "Error fetching chart data: $e";
-      print(_error); // Log for debugging
+      print(_error); 
     } finally {
       _isLoading = false;
       notifyListeners();

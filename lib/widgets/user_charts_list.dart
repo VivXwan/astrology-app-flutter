@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/services.dart';
+import 'package:intl/intl.dart'; // For date formatting
 import '../providers/auth_provider.dart';
 import '../providers/chart_provider.dart';
-import '../models/chart.dart';
+import '../models/chart_models.dart'; // For ChartSummary
+// import '../models/chart.dart'; // Chart model might not be directly needed here anymore
+import '../screens/chart_screen.dart'; // For navigation
 
 class UserChartsList extends StatefulWidget {
   const UserChartsList({Key? key}) : super(key: key);
@@ -13,46 +15,48 @@ class UserChartsList extends StatefulWidget {
 }
 
 class _UserChartsListState extends State<UserChartsList> {
-  final _chartIdController = TextEditingController();
-  bool _isLoading = false;
-  String? _error;
-  
-  @override
-  void dispose() {
-    _chartIdController.dispose();
-    super.dispose();
-  }
-  
-  Future<void> _loadChartById() async {
-    final chartId = _chartIdController.text.trim();
-    if (chartId.isEmpty) {
-      setState(() {
-        _error = 'Please enter a chart ID';
-      });
-      return;
-    }
-    
+  // Local state for handling tap on a chart item, to show loading/error specifically for that action
+  bool _isFetchingChartDetails = false;
+  String? _fetchDetailsError;
+
+  Future<void> _onChartTap(ChartSummary chartSummary) async {
     setState(() {
-      _isLoading = true;
-      _error = null;
+      _isFetchingChartDetails = true;
+      _fetchDetailsError = null;
     });
-    
     try {
       final chartProvider = Provider.of<ChartProvider>(context, listen: false);
-      await chartProvider.loadChartById(chartId);
+      await chartProvider.loadChartById(chartSummary.chartId.toString());
       
       if (mounted) {
-        // Navigate to chart screen
-        Navigator.pushReplacementNamed(context, '/chart');
+        if (chartProvider.error == null) { // Check error from ChartProvider after loading details
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ChartScreen()),
+          );
+        } else {
+          // Error is already set in ChartProvider, but we can show a snackbar too
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error loading chart details: ${chartProvider.error}')),
+          );
+          setState(() { // Update local error if needed, though chartProvider.error is primary
+            _fetchDetailsError = chartProvider.error;
+          });
+        }
       }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _fetchDetailsError = e.toString();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load chart: $_fetchDetailsError')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isFetchingChartDetails = false;
         });
       }
     }
@@ -60,166 +64,105 @@ class _UserChartsListState extends State<UserChartsList> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final chartProvider = Provider.of<ChartProvider>(context);
-    
-    // Only show this widget if user is authenticated
+    final authProvider = context.watch<AuthProvider>();
+    // Watch ChartProvider for changes to userCharts, isLoadingUserCharts, and error
+    final chartProvider = context.watch<ChartProvider>(); 
+
     if (!authProvider.isAuthenticated) {
-      return const SizedBox.shrink();
+      return const SizedBox.shrink(); // Don't show anything if not authenticated
     }
-    
+
+    // Proactive loading: If authenticated, charts are empty, not currently loading, and no previous error
+    if (chartProvider.userCharts.isEmpty &&
+        !chartProvider.isLoadingUserCharts &&
+        chartProvider.error == null) { // Check error for the list loading, not _fetchDetailsError
+      // Call loadUserCharts after the current build cycle is complete
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) { // Ensure the widget is still in the tree
+          Provider.of<ChartProvider>(context, listen: false).loadUserCharts(context);
+        }
+      });
+    }
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
-          child: Text(
-            'Authenticated Chart Generation',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Your charts are automatically saved when you generate them while logged in.',
-                style: TextStyle(
-                  color: Colors.grey,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'To access a saved chart, you need to know its specific ID. The current API does not provide a way to list all your saved charts.',
-                style: TextStyle(
-                  color: Colors.grey,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Charts you generate will be private to your account and accessible later if you save the chart ID.',
-                style: TextStyle(
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
-        
-        // Recently generated chart
-        if (chartProvider.chart != null && chartProvider.chart!.userId != null) 
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Text(
-                  'Recently Generated Chart:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16.0),
-                padding: const EdgeInsets.all(12.0),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Text('Chart ID: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Expanded(
-                          child: Text(
-                            chartProvider.chart!.id,
-                            style: const TextStyle(fontFamily: 'monospace'),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy, size: 18),
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: chartProvider.chart!.id));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Chart ID copied to clipboard')),
-                            );
-                          },
-                          tooltip: 'Copy Chart ID',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Created: ${chartProvider.chart!.formattedCreationDate}'),
-                    Text('Ascendant: ${chartProvider.chart!.ascendantSign}'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          
-        // Load chart by ID section
         Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Load Chart by ID',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _chartIdController,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter Chart ID',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _loadChartById,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Text('Load'),
-                  ),
-                ],
-              ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ),
-            ],
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+          child: Text(
+            'Your Saved Charts',
+            style: Theme.of(context).textTheme.titleLarge,
           ),
         ),
+        if (_isFetchingChartDetails) // Show loading indicator when fetching details for a specific chart
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.0),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        if (_fetchDetailsError != null) // Show error if fetching specific chart details failed
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Text(_fetchDetailsError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+        _buildChartList(chartProvider),
       ],
+    );
+  }
+
+  Widget _buildChartList(ChartProvider chartProvider) {
+    if (chartProvider.isLoadingUserCharts) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (chartProvider.error != null && chartProvider.userCharts.isEmpty) {
+      // Show error only if there are no charts to display and an error occurred loading them
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Text(
+          'Error loading your charts: ${chartProvider.error}',
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    if (chartProvider.userCharts.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Center(child: Text('You have no saved charts yet.')),
+      );
+    }
+
+    // Limit the number of charts displayed for performance, e.g., latest 10-20 or implement pagination
+    // final displayedCharts = chartProvider.userCharts.take(20).toList();
+
+    return ListView.builder(
+      shrinkWrap: true, // Important if ListView is inside a Column
+      physics: const NeverScrollableScrollPhysics(), // If inside a SingleChildScrollView
+      itemCount: chartProvider.userCharts.length, // Use all charts for now
+      itemBuilder: (context, index) {
+        final chartSummary = chartProvider.userCharts[index];
+        final birthDate = chartSummary.birthData;
+        String title = 'Chart for ${birthDate.day}/${birthDate.month}/${birthDate.year}';
+        String subtitle = 'Time: ${birthDate.hour.toInt().toString().padLeft(2, '0')}:${birthDate.minute.toInt().toString().padLeft(2, '0')}';
+        try {
+          final parsedDate = DateFormat("yyyy-MM-ddTHH:mm:ssZ").parse(chartSummary.createdAt, true).toLocal();
+          subtitle += '\nSaved: ${DateFormat.yMMMd().add_jm().format(parsedDate)}';
+        } catch (e) {
+           subtitle += '\nSaved: ${chartSummary.createdAt}'; // fallback
+        }
+
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+          child: ListTile(
+            title: Text(title),
+            subtitle: Text(subtitle),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: _isFetchingChartDetails ? null : () => _onChartTap(chartSummary),
+            // Prevent multiple taps while one is processing
+          ),
+        );
+      },
     );
   }
 } 

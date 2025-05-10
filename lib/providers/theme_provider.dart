@@ -4,12 +4,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ThemeProvider extends ChangeNotifier {
   // Theme mode with default as system
   ThemeMode _themeMode = ThemeMode.system;
+  final SharedPreferences prefs; // Added field for injected SharedPreferences
   
   // Getter for current theme mode
   ThemeMode get themeMode => _themeMode;
   
-  // Constructor loads saved theme
-  ThemeProvider() {
+  // Modified constructor to accept SharedPreferences instance
+  ThemeProvider(this.prefs) {
     _loadThemeFromPrefs();
   }
   
@@ -42,15 +43,21 @@ class ThemeProvider extends ChangeNotifier {
   
   // Load theme preference from storage
   Future<void> _loadThemeFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final themeModeIndex = prefs.getInt('theme_mode') ?? 0; // Default system
-    _themeMode = ThemeMode.values[themeModeIndex];
+    // Use the injected prefs instance
+    // final prefs = await SharedPreferences.getInstance(); // Removed internal instance creation
+    final themeModeIndex = prefs.getInt('theme_mode') ?? ThemeMode.system.index; // Default to system index
+    if (themeModeIndex >= 0 && themeModeIndex < ThemeMode.values.length) {
+      _themeMode = ThemeMode.values[themeModeIndex];
+    } else {
+      _themeMode = ThemeMode.system; // Fallback if index is out of bounds
+    }
     notifyListeners();
   }
   
   // Save theme preference to storage
   Future<void> _saveThemeToPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
+    // Use the injected prefs instance
+    // final prefs = await SharedPreferences.getInstance(); // Removed internal instance creation
     await prefs.setInt('theme_mode', _themeMode.index);
   }
 } 

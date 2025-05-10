@@ -1,54 +1,15 @@
 import 'package:dio/dio.dart';
 import '../utils/constants.dart';
-import '../models/location_model.dart';
 import '../models/user_model.dart';
-
-class GeocodeResponse {
-  final double latitude;
-  final double longitude;
-  final String displayName;
-  final String placeId;
-  final String osmType;
-  final String osmId;
-  final String type;
-  final String classType;
-  final double importance;
-  final Map<String, String> address;
-
-  GeocodeResponse({
-    required this.latitude,
-    required this.longitude,
-    required this.displayName,
-    required this.placeId,
-    required this.osmType,
-    required this.osmId,
-    required this.type,
-    required this.classType,
-    required this.importance,
-    required this.address,
-  });
-
-  factory GeocodeResponse.fromJson(Map<String, dynamic> json) {
-    return GeocodeResponse(
-      latitude: json['latitude']?.toDouble() ?? 0.0,
-      longitude: json['longitude']?.toDouble() ?? 0.0,
-      displayName: json['display_name'] ?? '',
-      placeId: json['place_id']?.toString() ?? '',
-      osmType: json['osm_type'] ?? '',
-      osmId: json['osm_id']?.toString() ?? '',
-      type: json['type'] ?? '',
-      classType: json['class_type'] ?? '',
-      importance: json['importance']?.toDouble() ?? 0.0,
-      address: Map<String, String>.from(json['address'] ?? {}),
-    );
-  }
-}
+import '../models/chart_models.dart';
+import '../models/geocode_models.dart';
+import '../models/health_models.dart';
 
 class ApiService {
   final Dio _dio = Dio(BaseOptions(
     baseUrl: Constants.apiBaseUrl,
-    connectTimeout: const Duration(seconds: 5),
-    receiveTimeout: const Duration(seconds: 3),
+    connectTimeout: const Duration(seconds: 60),
+    receiveTimeout: const Duration(seconds: 30),
   ));
 
   ApiService() {
@@ -71,8 +32,9 @@ class ApiService {
           
           // Warning for endpoints that might require authentication
           if (options.path.contains('/charts') && 
-              !options.path.contains('/charts/anon')) {
-            print('⚠️ WARNING: Accessing /charts endpoint without authentication token');
+              !options.path.contains('/charts/anon') &&
+              options.method == 'POST') {
+            print('⚠️ WARNING: Accessing POST /charts endpoint without authentication token for potential save');
           }
         }
         
@@ -83,7 +45,7 @@ class ApiService {
       onResponse: (response, handler) {
         print('\n✅ API Response:');
         print('Status Code: ${response.statusCode}');
-        // print('Data: ${response.data}');
+        print('Data: ${response.data}');
         return handler.next(response);
       },
       onError: (error, handler) {
@@ -131,8 +93,8 @@ class ApiService {
     print('Updated headers: ${_dio.options.headers}');
   }
 
-  // Register a new user
-  Future<AuthResponse> registerUser({
+  // Register a new user - Returns User object
+  Future<User> registerUser({
     required String name,
     required String email,
     required String password,
@@ -150,9 +112,7 @@ class ApiService {
       print('\n✅ Registration Successful:');
       print('Status: ${response.statusCode}');
       
-      final authResponse = AuthResponse.fromJson(response.data);
-      setAuthToken(authResponse.accessToken);
-      return authResponse;
+      return User.fromJson(response.data);
     } on DioException catch (e) {
       print('\n🚨 Registration Failed:');
       print('Error Type: ${e.type}');
@@ -170,8 +130,8 @@ class ApiService {
     }
   }
 
-  // Login user
-  Future<AuthResponse> loginUser({
+  // Login user - Returns TokenResponse with access and refresh tokens
+  Future<TokenResponse> loginUser({
     required String email,
     required String password,
   }) async {
@@ -193,9 +153,9 @@ class ApiService {
       print('\n✅ Login Successful:');
       print('Status: ${response.statusCode}');
       
-      final authResponse = AuthResponse.fromJson(response.data);
-      setAuthToken(authResponse.accessToken);
-      return authResponse;
+      final tokenResponse = TokenResponse.fromJson(response.data);
+      setAuthToken(tokenResponse.accessToken);
+      return tokenResponse;
     } on DioException catch (e) {
       print('\n🚨 Login Failed:');
       print('Error Type: ${e.type}');
@@ -211,159 +171,139 @@ class ApiService {
     }
   }
 
+  // Refresh Access Token
+  Future<TokenResponse> refreshToken({required String currentRefreshToken}) async {
+    try {
+      final response = await _dio.post('/refresh', data: {'refresh_token': currentRefreshToken});
+      final tokenResponse = TokenResponse.fromJson(response.data);
+      setAuthToken(tokenResponse.accessToken); // Update with the new access token
+      return tokenResponse;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        clearAuthToken(); 
+        throw Exception(e.response?.data['detail'] ?? 'Invalid or expired refresh token');
+      }
+      throw Exception(e.response?.data['detail'] ?? 'Error refreshing token: ${e.message}');
+    }
+  }
+
+  // Logout User
+  Future<void> logoutUser({required String currentRefreshToken}) async {
+    try {
+      await _dio.post('/logout', data: {'refresh_token': currentRefreshToken});
+      clearAuthToken(); // Clear client-side tokens upon successful logout
+    } on DioException catch (e) {
+      clearAuthToken(); // Clear tokens even if logout fails server-side, for client safety
+      throw Exception(e.response?.data['detail'] ?? 'Error during logout: ${e.message}');
+    }
+  }
+
+  // Get Authenticated User's Charts
+  Future<List<ChartSummary>> getAuthenticatedUserCharts() async {
+    try {
+      final response = await _dio.get('/users/me/charts');
+      var list = response.data as List;
+      return list.map((i) => ChartSummary.fromJson(i as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw Exception(e.response?.data['detail'] ?? 'Not authenticated. Please login.');
+      }
+      throw Exception(e.response?.data['detail'] ?? 'An unexpected error occurred while retrieving charts: ${e.message}');
+    }
+  }
+
+  // Generate Chart (Existing method - ensure it's compatible with optional Auth)
+  // The user stated this endpoint is working perfectly.
+  // If an auth token is set via setAuthToken(), Dio will automatically include it.
+  // If no token is set, it will be an anonymous request.
   Future<Map<String, dynamic>> getChart({
     required int year,
     required int month,
     required int day,
     required double hour,
     required double minute,
-    double seconds=0,
+    double seconds = 0.0,
     required double latitude,
     required double longitude,
+    double? tzOffset, // Optional query parameters
+    String? transitDate,
+    String? ayanamsaType,
+    int? dashaLevel,
   }) async {
     try {
-      print('\n📊 Preparing Chart Request:');
-      print('Date: $year-$month-$day');
-      print('Time: $hour:$minute:$seconds');
-      print('Location: $latitude, $longitude');
-
-      // Ensure hour, minute and seconds are properly formatted as numbers
-      final formattedHour = hour.toStringAsFixed(1);
-      final formattedMinute = minute.toStringAsFixed(1);
-      final formattedSeconds = seconds.toStringAsFixed(1);
-
       final requestData = {
         'year': year,
         'month': month,
         'day': day,
-        'hour': double.parse(formattedHour),
-        'minute': double.parse(formattedMinute),
-        'seconds': double.parse(formattedSeconds),
+        'hour': hour, // API expects float
+        'minute': minute, // API expects float
+        'second': seconds, // API expects float
         'latitude': latitude,
         'longitude': longitude,
       };
-
-      print('Sending request with data: $requestData');
-
-      final response = await _dio.post('/charts', data: requestData);
       
-      print('\n📈 Chart Response Received:');
-      print('Status: ${response.statusCode}');
-      print('Data Size: ${response.data.length} entries');
-      
-      return response.data;
+      Map<String, dynamic> queryParameters = {};
+      if (tzOffset != null) queryParameters['tz_offset'] = tzOffset;
+      if (transitDate != null) queryParameters['transit_date'] = transitDate;
+      if (ayanamsaType != null) queryParameters['ayanamsa_type'] = ayanamsaType;
+      if (dashaLevel != null) queryParameters['dasha_level'] = dashaLevel;
+
+      final response = await _dio.post(
+        '/charts', 
+        data: requestData,
+        queryParameters: queryParameters.isNotEmpty ? queryParameters : null,
+      );
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      print('\n🚨 Chart Request Failed:');
-      print('Error Type: ${e.type}');
-      print('Error Message: ${e.message}');
-      print('Response Status: ${e.response?.statusCode}');
-      print('Response Data: ${e.response?.data}');
-      print('Request Data: ${e.requestOptions.data}');
-      throw Exception('Failed to fetch chart: ${e.message}');
-    }
-  }
-
-  Future<List<GeocodeResponse>> geocode(String query) async {
-    try {
-      print('\n🔍 Geocoding Request:');
-      print('Query: $query');
-
-      final response = await _dio.post('/geocode', data: {'query': query});
-      
-      print('\n📍 Geocoding Response:');
-      print('Status: ${response.statusCode}');
-      print('Data: ${response.data}');
-      
-      if (response.data is Map<String, dynamic> && response.data['locations'] != null) {
-        final locations = response.data['locations'] as List;
-        return locations.map((item) => GeocodeResponse.fromJson(item)).toList();
+      if (e.response?.statusCode == 400) {
+         throw Exception(e.response?.data['detail'] ?? 'Chart generation failed: invalid input');
+      } else if (e.response?.statusCode == 429) {
+         throw Exception(e.response?.data['detail'] ?? 'Rate limit exceeded. Please try again later.');
       }
-      
-      throw Exception('Invalid response format from geocoding API');
-    } on DioException catch (e) {
-      print('\n🚨 Geocoding Failed:');
-      print('Error Type: ${e.type}');
-      print('Error Message: ${e.message}');
-      print('Response Status: ${e.response?.statusCode}');
-      print('Response Data: ${e.response?.data}');
-      throw Exception('Failed to geocode location: ${e.message}');
+      throw Exception(e.response?.data['detail'] ?? 'Unexpected error generating chart: ${e.message}');
     }
   }
 
-  Future<List<LocationModel>> searchLocation(String query) async {
+  // Get Chart by ID
+  Future<ChartSummary> getChartById(int chartId) async {
     try {
-      print('\n🔍 Location Search Request:');
-      print('Query: $query');
-
-      final geocodeResults = await geocode(query);
-      
-      return geocodeResults.map((result) => LocationModel(
-        name: query,
-        displayName: result.displayName,
-        latitude: result.latitude,
-        longitude: result.longitude,
-        address: result.address,
-      )).toList();
-    } catch (e) {
-      print('\n🚨 Location Search Failed:');
-      print('Error: $e');
-      throw Exception('Failed to search location: $e');
-    }
-  }
-
-  // Get a specific chart by ID (requires authentication for private charts)
-  Future<Map<String, dynamic>> getChartById(String chartId) async {
-    try {
-      print('\n📊 Get Chart By ID Request:');
-      print('Chart ID: $chartId');
-
       final response = await _dio.get('/charts/$chartId');
-      
-      print('\n📈 Chart Retrieved Successfully:');
-      print('Status: ${response.statusCode}');
-      
-      return response.data;
+      return ChartSummary.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      print('\n🚨 Get Chart Failed:');
-      print('Error Type: ${e.type}');
-      print('Error Message: ${e.message}');
-      print('Response Status: ${e.response?.statusCode}');
-      
-      if (e.response?.statusCode == 403) {
-        throw Exception('You are not authorized to view this chart');
-      } else if (e.response?.statusCode == 404) {
-        throw Exception('Chart not found');
+      if (e.response?.statusCode == 404) {
+        throw Exception(e.response?.data['detail'] ?? 'Chart not found');
+      } else if (e.response?.statusCode == 401) {
+        throw Exception(e.response?.data['detail'] ?? 'Could not validate credentials');
+      } else if (e.response?.statusCode == 403) {
+        // API spec says 403: "Chart doesn't exist" - might be for permission reasons on user-owned chart
+        throw Exception(e.response?.data['detail'] ?? 'Access to chart forbidden or chart doesn\'t exist');
       }
-      
-      throw Exception('Failed to get chart: ${e.message}');
+      throw Exception(e.response?.data['detail'] ?? 'Error fetching chart by ID: ${e.message}');
     }
   }
 
-  // Get all charts for the current user (requires authentication)
-  // Note: Since the API doesn't have a dedicated endpoint for listing all user charts,
-  // this is a placeholder that will show a message to the user
-  Future<List<Map<String, dynamic>>> getUserCharts() async {
+  // Geocode Location
+  Future<GeocodeAPIResult> geocodeLocation(String query) async {
     try {
-      print('\n📊 Get User Charts Request');
-      
-      // Since there's no API endpoint for getting all charts,
-      // we'll return an empty list for now
-      // In a real implementation, we might need to store chart IDs locally
-      // or have the backend implement a GET /charts endpoint
-      
-      return [];
-      
+      final response = await _dio.post('/geocode', data: {'query': query});
+      return GeocodeAPIResult.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      print('\n🚨 Get User Charts Failed:');
-      print('Error Type: ${e.type}');
-      print('Error Message: ${e.message}');
-      print('Response Status: ${e.response?.statusCode}');
-      
-      if (e.response?.statusCode == 401) {
-        throw Exception('Authentication required to view your charts');
+       if (e.response?.statusCode == 400) {
+         throw Exception(e.response?.data['detail'] ?? 'Invalid geocode request');
+      } else if (e.response?.statusCode == 429) {
+         throw Exception(e.response?.data['detail'] ?? 'Rate limit exceeded. Please try again later.');
       }
-      
-      throw Exception('Failed to get user charts: ${e.message}');
+      throw Exception(e.response?.data['detail'] ?? 'Error during geocoding: ${e.message}');
+    }
+  }
+  
+  // Health Check
+  Future<HealthStatus> getHealth() async {
+    try {
+      final response = await _dio.get('/health');
+      return HealthStatus.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception('Failed to get health status: ${e.message}');
     }
   }
 }

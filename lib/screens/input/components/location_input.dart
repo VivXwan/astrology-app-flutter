@@ -4,6 +4,7 @@ import 'package:flutter_typeahead/flutter_typeahead.dart';
 import '../../../models/location_model.dart';
 import '../../../services/api_service.dart';
 import 'package:provider/provider.dart';
+import '../../../models/geocode_models.dart'; // Added for GeocodeResponse and GeocodeAPIResult
 
 class LocationInput extends StatefulWidget {
   final bool useManualInput;
@@ -27,11 +28,9 @@ class LocationInput extends StatefulWidget {
 
 class _LocationInputState extends State<LocationInput> {
   LocationModel? _selectedCity;
-  List<LocationModel> _searchResults = [];
   TextEditingController? _textEditingController;
-  DateTime? _lastSelectionTime; // Timestamp of last selection instead of a boolean flag
+  DateTime? _lastSelectionTime;
   
-  // Controllers for manual input fields
   final TextEditingController _latitudeController = TextEditingController();
   final TextEditingController _longitudeController = TextEditingController();
 
@@ -42,7 +41,6 @@ class _LocationInputState extends State<LocationInput> {
     super.dispose();
   }
 
-  // Helper to validate coordinates
   bool _validateCoordinates() {
     try {
       final latitude = double.parse(_latitudeController.text);
@@ -58,7 +56,6 @@ class _LocationInputState extends State<LocationInput> {
         return false;
       }
       
-      // Valid coordinates, pass them to parent
       widget.onLocationSelected(latitude, longitude);
       return true;
     } catch (e) {
@@ -81,7 +78,6 @@ class _LocationInputState extends State<LocationInput> {
                 Switch(
                   value: widget.useManualInput,
                   onChanged: (value) {
-                    // Clear any error messages when switching modes
                     widget.onError('');
                     widget.onToggleManualInput(value);
                   },
@@ -92,7 +88,6 @@ class _LocationInputState extends State<LocationInput> {
         ),
         const SizedBox(height: 12),
         if (widget.useManualInput)
-          // Manual coordinate input fields
           Column(
             children: [
               TextField(
@@ -107,7 +102,6 @@ class _LocationInputState extends State<LocationInput> {
                   FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*$')),
                 ],
                 onChanged: (_) {
-                  // Try to validate when both fields have values
                   if (_latitudeController.text.isNotEmpty && 
                       _longitudeController.text.isNotEmpty) {
                     _validateCoordinates();
@@ -127,7 +121,6 @@ class _LocationInputState extends State<LocationInput> {
                   FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*$')),
                 ],
                 onChanged: (_) {
-                  // Try to validate when both fields have values
                   if (_latitudeController.text.isNotEmpty && 
                       _longitudeController.text.isNotEmpty) {
                     _validateCoordinates();
@@ -142,7 +135,6 @@ class _LocationInputState extends State<LocationInput> {
             ],
           )
         else
-          // Location search functionality
           TypeAheadField<LocationModel>(
             builder: (context, controller, focusNode) {
               _textEditingController = controller;
@@ -158,8 +150,7 @@ class _LocationInputState extends State<LocationInput> {
                       controller.clear();
                       setState(() {
                         _selectedCity = null;
-                        _searchResults = [];
-                        _lastSelectionTime = null; // Reset selection timestamp
+                        _lastSelectionTime = null;
                       });
                     },
                   ),
@@ -167,35 +158,30 @@ class _LocationInputState extends State<LocationInput> {
               );
             },
             suggestionsCallback: (pattern) async {
-              print('🔍 suggestionsCallback called with pattern: $pattern');
               if (_lastSelectionTime != null) {
                 final timeSinceSelection = DateTime.now().difference(_lastSelectionTime!);
-                print('⏱ Time since last selection: ${timeSinceSelection.inMilliseconds}ms');
-                
-                // Block API calls if within debounce window (1.5 seconds)
                 if (timeSinceSelection.inMilliseconds < 1500) {
-                  print('🛑 Blocking API call - within debounce period');
-                  return []; // Return empty list to hide dropdown
+                  return [];
                 }
               }
-              
-              if (pattern.isEmpty) {
-                print('📝 Pattern empty, returning empty list');
+              if (pattern.isEmpty || pattern.length < 2) {
                 return [];
               }
-              
               widget.onLocationQuery(pattern);
               try {
-                print('🌐 Calling API with query: $pattern');
                 final apiService = Provider.of<ApiService>(context, listen: false);
-                final results = await apiService.searchLocation(pattern);
-                setState(() {
-                  _searchResults = results;
-                });
-                print('✅ API returned ${results.length} results');
-                return results;
+                final GeocodeAPIResult geocodeApiResult = await apiService.geocodeLocation(pattern);
+                
+                return geocodeApiResult.locations.map((geoRes) {
+                  return LocationModel(
+                    name: geoRes.address['city'] ?? geoRes.address['town'] ?? geoRes.address['village'] ?? geoRes.displayName.split(',').first,
+                    displayName: geoRes.displayName,
+                    latitude: geoRes.latitude,
+                    longitude: geoRes.longitude,
+                    address: geoRes.address,
+                  );
+                }).toList();
               } catch (e) {
-                print('❌ API error: $e');
                 widget.onError(e.toString());
                 return [];
               }
@@ -206,33 +192,22 @@ class _LocationInputState extends State<LocationInput> {
               );
             },
             onSelected: (LocationModel suggestion) {
-              print('🎯 Item selected: ${suggestion.displayName}');
-              
-              // Record selection timestamp immediately
               _lastSelectionTime = DateTime.now();
-              print('🕒 Selection timestamp recorded: ${_lastSelectionTime}');
-              
               setState(() {
                 _selectedCity = suggestion;
               });
-              
               widget.onLocationSelected(suggestion.latitude, suggestion.longitude);
-              
-              // Update the text field with a slight delay
-              Future.delayed(Duration(milliseconds: 100), () {
-                print('⏱ Updating text after 100ms');
-                if (_textEditingController != null) {
-                  print('📝 Setting text to: ${suggestion.displayName}');
+              Future.delayed(const Duration(milliseconds: 100), () {
+                if (_textEditingController != null && mounted) {
                   _textEditingController!.text = suggestion.displayName;
                 }
               });
             },
             hideOnSelect: true,
-            hideOnEmpty: true,
-            debounceDuration: Duration(milliseconds: 500),
-            emptyBuilder: (context) => Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text('No locations found'),
+            debounceDuration: const Duration(milliseconds: 500),
+            emptyBuilder: (context) => const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text('No locations found. Try a different query.'),
             ),
           ),
       ],

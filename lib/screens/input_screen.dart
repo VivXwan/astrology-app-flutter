@@ -88,7 +88,7 @@ class _InputScreenState extends State<InputScreen> {
 
       if (_selectedDate == null || _selectedTime == null) {
         setState(() {
-          _errorMessage = 'Please fill all fields';
+          _errorMessage = 'Please fill all date and time fields';
         });
         return;
       }
@@ -100,31 +100,37 @@ class _InputScreenState extends State<InputScreen> {
 
       try {
         final inputService = InputService(context);
+        double? currentLatitude = _latitude;
+        double? currentLongitude = _longitude;
 
-        // If using location search and coordinates are not set, search for location first
-        if (!_useManualInput && (_latitude == null || _longitude == null)) {
+        if (!_useManualInput && (currentLatitude == null || currentLongitude == null)) {
           if (_locationQuery.isEmpty) {
-            throw Exception('Please enter a location');
+            throw Exception('Please enter a location to search or input coordinates manually.');
           }
-          final (lat, lon) = await inputService.searchLocation(_locationQuery);
-          setState(() {
-            _latitude = lat;
-            _longitude = lon;
-          });
+          final coordinates = await inputService.searchLocation(_locationQuery);
+          if (coordinates != null) {
+            currentLatitude = coordinates.$1;
+            currentLongitude = coordinates.$2;
+          } else {
+            throw Exception('Location \"$_locationQuery\" not found. Please try a different query or enter coordinates manually.');
+          }
+        }
+        
+        if (currentLatitude == null || currentLongitude == null) {
+          throw Exception('Coordinates are missing. Please select a location or enter them manually.');
         }
 
         await inputService.generateChart(
           date: _selectedDate!,
           time: _selectedTime!,
-          latitude: _latitude,
-          longitude: _longitude,
+          latitude: currentLatitude,
+          longitude: currentLongitude,
           locationQuery: (_latitude == null || _longitude == null) ? _locationQuery : null,
-          context: context, // Pass context for auth checks
+          context: context,
         );
 
-        // Navigate to ChartScreen to display the chart
         if (mounted) {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ChartScreen()),
           );
@@ -141,6 +147,31 @@ class _InputScreenState extends State<InputScreen> {
     }
   }
 
+  void _showAuthDialog(BuildContext context) {
+    // Clear any previous auth errors before showing the dialog
+    // Provider.of<AuthProvider>(context, listen: false).clearError(); // AuthContainer already does this in initState
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        // Use a Builder to get a context that is a descendant of the Dialog
+        // This is important if LoginForm/RegisterForm need to pop the dialog
+        return Builder(
+          builder: (contextForDialog) {
+            return AlertDialog(
+              contentPadding: const EdgeInsets.all(0),
+              // AlertDialog has its own padding, AuthContainer also has padding.
+              // Consider wrapping AuthContainer in a SizedBox to control its size in dialog.
+              content: SingleChildScrollView( // Important for smaller screens or if content overflows
+                child: AuthContainer(), // AuthContainer will show login/register or welcome/logout
+              ),
+              // Optionally add actions like a close button if needed, though forms might handle it
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -151,7 +182,19 @@ class _InputScreenState extends State<InputScreen> {
       appBar: AppBar(
         title: const Text('Vedic Astrology'),
         actions: [
-          // Replace ThemeSwitch with AppSettings button
+          IconButton(
+            icon: Icon(
+              authProvider.isAuthenticated 
+                ? Icons.account_circle 
+                : Icons.account_circle_outlined
+            ),
+            tooltip: authProvider.isAuthenticated 
+              ? 'Account Info / Logout' 
+              : 'Login / Register',
+            onPressed: () {
+              _showAuthDialog(context);
+            },
+          ),
           AppSettings.settingsButton(context),
         ],
       ),
@@ -168,20 +211,8 @@ class _InputScreenState extends State<InputScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Birth Details Form
             _buildBirthDetailsForm(),
-            
-            // User Charts List (only visible when logged in)
             const UserChartsList(),
-            
-            // Divider
-            const Divider(height: 48),
-            
-            // Auth Container
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: const AuthContainer(),
-            ),
           ],
         ),
       ),
@@ -192,7 +223,6 @@ class _InputScreenState extends State<InputScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Left Column
         Expanded(
           flex: 3,
           child: SingleChildScrollView(
@@ -205,23 +235,7 @@ class _InputScreenState extends State<InputScreen> {
             ),
           ),
         ),
-        
-        // Vertical Divider
         const VerticalDivider(width: 1),
-        
-        // Auth Container
-        Expanded(
-          flex: 2,
-          child: Container(
-            height: double.infinity,
-            padding: const EdgeInsets.all(16.0),
-            child: const Center(
-              child: SingleChildScrollView(
-                child: AuthContainer(),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }

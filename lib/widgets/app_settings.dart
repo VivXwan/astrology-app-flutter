@@ -52,21 +52,21 @@ class AppSettings {
                             leading: CircleAvatar(
                               backgroundColor: theme.colorScheme.primary,
                               child: Text(
-                                authProvider.user?.name.substring(0, 1).toUpperCase() ?? 'U',
+                                authProvider.currentUser?.name.substring(0, 1).toUpperCase() ?? 'U',
                                 style: TextStyle(color: theme.colorScheme.onPrimary),
                               ),
                             ),
                             title: Text(
-                              authProvider.user?.name ?? 'User',
+                              authProvider.currentUser?.name ?? 'User',
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             subtitle: Text(
-                              authProvider.user?.email ?? '',
+                              authProvider.currentUser?.email ?? '',
                               style: TextStyle(fontSize: 12),
                             ),
                             trailing: TextButton(
                               onPressed: () {
-                                authProvider.logout();
+                                authProvider.signOut();
                                 Navigator.of(context).pop();
                               },
                               child: const Text('Logout'),

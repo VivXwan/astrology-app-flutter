@@ -30,6 +30,8 @@ class _AuthContainerState extends State<AuthContainer> with SingleTickerProvider
       ),
     );
     _animationController.forward();
+    // Clear any previous errors when the widget is initialized
+    Provider.of<AuthProvider>(context, listen: false).clearError();
   }
   
   @override
@@ -60,37 +62,38 @@ class _AuthContainerState extends State<AuthContainer> with SingleTickerProvider
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.check_circle_outline,
-            color: Colors.green,
-            size: 48,
-          ),
-          const SizedBox(height: 16),
           Text(
-            'Welcome, ${authProvider.user?.name}!',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
+            'Welcome, ${authProvider.currentUser?.name ?? "User"}!',
+            style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
           Text(
-            'You are logged in as ${authProvider.user?.email}',
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
-            textAlign: TextAlign.center,
+            'You are logged in as ${authProvider.currentUser?.email ?? "your_email@example.com"}',
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: authProvider.isLoading ? null : () => authProvider.logout(),
-            icon: const Icon(Icons.logout),
-            label: const Text('Logout'),
+          const SizedBox(height: 20),
+          ElevatedButton(
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
             ),
+            onPressed: authProvider.isLoading 
+              ? null 
+              : () async {
+                  await authProvider.signOut();
+                  // After signing out, if the widget is still mounted (i.e., dialog is open),
+                  // pop the dialog.
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+            child: authProvider.isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2.0, color: Colors.white),
+                  )
+                : const Text('Logout'),
           ),
         ],
       );

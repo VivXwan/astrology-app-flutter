@@ -2,24 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../services/api_service.dart';
 import '../../../providers/chart_provider.dart';
+import '../../../models/geocode_models.dart';
 
 class InputService {
   final BuildContext context;
 
   InputService(this.context);
 
-  Future<(double, double)> searchLocation(String query) async {
+  Future<(double, double)?> searchLocation(String query) async {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final responses = await apiService.geocode(query);
-      if (responses.isEmpty) {
-        throw Exception('No locations found');
+      final GeocodeAPIResult geocodeApiResult = await apiService.geocodeLocation(query);
+      
+      if (geocodeApiResult.locations.isEmpty) {
+        return null;
       }
-      // Use the first result
-      final response = responses.first;
-      return (response.latitude, response.longitude);
+      final GeocodeResponse firstLocation = geocodeApiResult.locations.first;
+      return (firstLocation.latitude, firstLocation.longitude);
     } catch (e) {
-      throw Exception('Error finding location: $e');
+      print('Error finding location: $e');
+      return null;
     }
   }
 
@@ -32,12 +34,9 @@ class InputService {
     BuildContext? context,
   }) async {
     try {
-      // Use the context passed as parameter or fall back to this.context
       final ctx = context ?? this.context;
       final chartProvider = Provider.of<ChartProvider>(ctx, listen: false);
       
-      // Using the chartProvider with the proper context will ensure it has
-      // access to the same ApiService instance that has the auth token set
       await chartProvider.generateChart(
         date: date,
         time: time,

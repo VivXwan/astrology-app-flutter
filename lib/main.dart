@@ -16,43 +16,44 @@ import 'package:shared_preferences/shared_preferences.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Create instances that need initialization
-  final apiService = ApiService();
-  final prefs = await SharedPreferences.getInstance();
-  
-  // Check if we have an auth token and apply it to the API service
-  final userData = prefs.getString('userData');
-  if (userData != null) {
-    try {
-      final decodedData = json.decode(userData);
-      if (decodedData['token'] != null) {
-        final token = decodedData['token'] as String;
-        print('Setting auth token from SharedPreferences: ${token.substring(0, min(20, token.length))}...');
-        apiService.setAuthToken(token);
-      }
-    } catch (e) {
-      print('Error loading auth token: $e');
-    }
-  }
+  final apiService = ApiService(); // ApiService instance needed by AuthProvider
+  final prefs = await SharedPreferences.getInstance(); // SharedPreferences instance
+
+  // Removed old token loading logic. AuthProvider will handle this.
+  // final userData = prefs.getString('userData');
+  // if (userData != null) {
+  //   try {
+  //     final decodedData = json.decode(userData);
+  //     if (decodedData['token'] != null) {
+  //       final token = decodedData['token'] as String;
+  //       print('Setting auth token from SharedPreferences: ${token.substring(0, min(20, token.length))}...');
+  //       apiService.setAuthToken(token);
+  //     }
+  //   } catch (e) {
+  //     print('Error loading auth token: $e');
+  //   }
+  // }
   
   runApp(
     MultiProvider(
       providers: [
-        Provider<ApiService>(create: (_) => apiService),
+        // ApiService provided first as AuthProvider depends on it.
+        Provider<ApiService>.value(value: apiService),
+        ChangeNotifierProvider<ThemeProvider>(
+          create: (_) => ThemeProvider(prefs), // Pass prefs to ThemeProvider
+        ),
+        // AuthProvider depends on ApiService. It will attempt auto-login.
+        ChangeNotifierProvider<AuthProvider>(
+          create: (context) => AuthProvider(context.read<ApiService>()),
+        ),
+        // ChartProvider depends on ApiService and indirectly on AuthProvider for authenticated calls.
         ChangeNotifierProvider<ChartProvider>(
           create: (context) => ChartProvider(context.read<ApiService>()),
         ),
         ChangeNotifierProvider(create: (_) => KundaliProvider()),
         ChangeNotifierProvider(create: (_) => DashaProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProxyProvider<ApiService, AuthProvider>(
-          create: (context) => AuthProvider(context.read<ApiService>()),
-          update: (context, apiService, previous) => 
-              previous ?? AuthProvider(apiService),
-        ),
         Provider<InputService>(
           create: (context) => InputService(context),
         ),
@@ -62,8 +63,7 @@ void main() async {
   );
 }
 
-// Function to get minimum of two numbers (for substring safety)
-int min(int a, int b) => a < b ? a : b;
+// int min(int a, int b) => a < b ? a : b; // Already exists or not needed if old token logic removed
 
 class VedicAstrologyApp extends StatelessWidget {
   const VedicAstrologyApp({super.key});
